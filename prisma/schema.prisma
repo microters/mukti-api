@@ -1,0 +1,219 @@
+// ==========================
+// PRISMA CONFIGURATION
+// ==========================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================
+// User MODEL
+// ==========================
+model User {
+  id          String   @id @default(uuid())   // Unique ID, auto-generated using UUID
+  phoneNumber String   @unique                // User's phone number, unique constraint
+  name        String?  // User's name, optional
+  email       String?  @unique                // User's email, unique constraint
+  password    String   // User's password
+  createdAt   DateTime @default(now())        // Timestamp for when the user was created
+}
+// ==========================
+// DOCTOR MODEL
+// ==========================
+
+model Doctor {
+  id                  String   @id @default(uuid())
+  name                Json
+  designation         Json
+  department          Json
+  shortBio            Json?
+  contactNumber       Json
+  contactNumberSerial Json
+  gender              Json
+  profilePhoto        String 
+  email               String  @unique
+  appointmentFee      Float
+  followUpFee         Float
+  patientAttended     Int
+  avgConsultationTime Json
+  academicQualiFication Json   // ✅ Ensure Correct Spelling
+  yearsOfExperience   Json     // ✅ Ensure Correct Spelling
+  memberships         Membership[]
+  awards              Award[]
+  treatments          Treatment[]
+  conditions          Condition[]
+  schedule            Schedule[]
+  faqs                FAQ[]
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  Appointment Appointment[]
+}
+
+
+
+
+// ==========================
+// APPOINTMENT MODEL
+// ==========================
+
+model Appointment {
+  id                String   @id @default(uuid())
+  doctorId          String
+  patientId         String
+  consultationFee   Float
+  vat               Float
+  promoCode         String?  
+  consultationType  ConsultationType 
+  paymentMethod     PaymentMethod 
+  directorReference String?  
+  status            String   @default("Pending") 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // ✅ Keep the relation so Prisma works correctly
+  doctor   Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient  Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+
+
+
+// ==========================
+// PATIENT MODEL
+// ==========================
+
+model Patient { 
+  id          String  @id @default(uuid())
+  name        Json
+  phoneNumber Json
+  email       String  @unique
+  gender      Json
+  bloodGroup  Json
+  dateOfBirth DateTime
+  age         Json
+  weight      Json
+  image       String  // URL of the image
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  appointments Appointment[]
+}
+
+
+// ==========================
+// MEMBERSHIP MODEL
+// ==========================
+
+model Membership {
+  id        String @id @default(uuid())
+  doctorId  String
+  name      Json
+  doctor    Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+// ==========================
+// AWARD MODEL
+// ==========================
+
+model Award {
+  id        String @id @default(uuid())
+  doctorId  String
+  title     Json
+  doctor    Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+// ==========================
+// TREATMENT MODEL
+// ==========================
+
+model Treatment {
+  id        String @id @default(uuid())
+  doctorId  String
+  name      Json
+  doctor    Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+// ==========================
+// CONDITION MODEL
+// ==========================
+
+model Condition {
+  id        String @id @default(uuid())
+  doctorId  String
+  name      Json
+  doctor    Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+// ==========================
+// SCHEDULE MODEL
+// ==========================
+
+model Schedule {
+  id        String @id @default(uuid())
+  doctorId  String
+  day       String // e.g., Monday, Tuesday
+  startTime String // e.g., 09:00 AM
+  endTime   String // e.g., 05:00 PM
+  doctor    Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+// ==========================
+// FAQ MODEL
+// ==========================
+
+model FAQ {
+  id       String @id @default(uuid())
+  doctorId String
+  question Json
+  answer   Json
+  doctor   Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+// ==========================
+// ENUMS
+// ==========================
+
+enum ConsultationType {
+  PHYSICAL
+  VIDEO_CALL
+}
+
+enum PaymentMethod {
+  BKASH
+  BANK
+  REFERENCE
+}
+
+// ==========================
+// BLOG MODEL
+// ==========================
+
+model Blog {
+  id              String   @id @default(uuid())
+  metaTitle       String?
+  metaDescription String?
+  title           String
+  slug            String   @unique
+  description     String
+  content         String
+  image           String?  // Stores the uploaded image filename
+  categories      Category[] @relation("BlogCategories")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ==========================
+// CATEGORY MODEL
+// ==========================
+
+model Category {
+  id     String @id @default(uuid())
+  name   String @unique
+  blogs  Blog[] @relation("BlogCategories")
+}
