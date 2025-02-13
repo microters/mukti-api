@@ -1,51 +1,63 @@
-// /routes/verifyOtp.js
 const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 const router = express.Router();
 
-// In-memory OTP storage (for demo purposes). In production, use Redis or a database.
-let otpStore = {}; // { email: { otp: '123456', createdAt: <timestamp> } }
+const OTP_EXPIRATION_TIME = 10 * 60 * 1000; // 10 minutes
 
-const OTP_EXPIRATION_TIME = 10 * 60 * 1000; // 10 minutes expiration time
-
-// Verify OTP route
+// ✅ Verify OTP Route
 router.post("/", async (req, res) => {
   const { email, otp } = req.body;
 
-  // Check if OTP exists in the store
-  if (!otpStore[email]) {
+  console.log(`🟢 Received Email: ${email}`);
+  console.log(`🟢 Received OTP: ${otp}`);
+
+  if (!email || !otp) {
+    return res.status(400).json({ message: "Email and OTP are required" });
+  }
+
+  // ✅ Fetch OTP from Database
+  const storedOtpData = await prisma.oTP.findUnique({
+    where: { email },
+  });
+
+  if (!storedOtpData) {
     return res.status(400).json({ message: "OTP not found. Please request a new one." });
   }
 
-  const storedOtp = otpStore[email];
+  const { otp: storedOtp, createdAt, name, phoneNumber, password } = storedOtpData;
 
-  // Check if OTP has expired
-  const isExpired = Date.now() - storedOtp.createdAt > OTP_EXPIRATION_TIME;
+  // ✅ Check if OTP has expired
+  const isExpired = new Date() - new Date(createdAt) > OTP_EXPIRATION_TIME;
   if (isExpired) {
-    // OTP has expired, delete it from the store
-    delete otpStore[email];
-    return res.status(400).json({ message: "OTP has expired. Please request a new one." });
+    await prisma.oTP.delete({ where: { email } }); // Remove expired OTP
+    return res.status(400).json({ message: "OTP expired. Please request a new one." });
   }
 
-  // Verify the OTP
-  if (otp === storedOtp.otp) {
-    // OTP is correct, you can mark the user as verified in your database (optional)
-    console.log(`OTP verified for ${email}`);
+  // ✅ Verify OTP
+  if (otp === storedOtp) {
+    // ✅ Check if user exists before updating
+    let existingUser = await prisma.user.findUnique({ where: { email } });
 
-    // Optionally, you can mark the user as verified in the database
-    // await prisma.user.update({
-    //   where: { email },
-    //   data: { isVerified: true }, // Add a 'isVerified' field in your user model
-    // });
+    if (!existingUser) {
+      // ✅ If user does NOT exist, create it with all required fields
+      existingUser = await prisma.user.create({
+        data: { name, email, phoneNumber, password, isVerified: true },
+      });
+    } else {
+      // ✅ If user EXISTS, update verification status
+      await prisma.user.update({
+        where: { email },
+        data: { isVerified: true },
+      });
+    }
 
-    // Remove the OTP from the store after verification
-    delete otpStore[email];
+    await prisma.oTP.delete({ where: { email } }); // ✅ Remove OTP after verification
 
-    res.status(200).json({ message: "OTP verified successfully!" });
+    return res.status(200).json({ message: "User verified successfully!", user: existingUser });
   } else {
-    res.status(400).json({ message: "Invalid OTP. Please try again." });
+    return res.status(400).json({ message: "Invalid OTP. Please try again." });
   }
 });
 
