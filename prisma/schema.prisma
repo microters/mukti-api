@@ -9,6 +9,7 @@ generator client {
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 // ==========================
@@ -41,8 +42,8 @@ model Doctor {
   followUpFee         Float
   patientAttended     Int
   avgConsultationTime Json
-  academicQualiFication Json   // ✅ Ensure Correct Spelling
-  yearsOfExperience   Json     // ✅ Ensure Correct Spelling
+  academicQualiFication Json 
+  yearsOfExperience   Json 
   memberships         Membership[]
   awards              Award[]
   treatments          Treatment[]

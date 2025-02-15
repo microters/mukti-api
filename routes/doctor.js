@@ -21,7 +21,12 @@ router.post("/add", authenticateAPIKey, async (req, res) => {
     } = req.body;
 
     // Check if a doctor already exists
-    const existingDoctor = await prisma.doctor.findUnique({ where: { email } });
+    const existingDoctor = await prisma.doctor.findUnique({
+      where: {
+        email: email || undefined, // Only use email if it's provided
+        id: id || undefined         // Only use id if it's provided
+      }
+    });
     if (existingDoctor) {
       return res.status(400).json({ error: "A doctor with this email already exists." });
     }
