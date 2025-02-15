@@ -70,6 +70,17 @@ model Doctor {
 }
 
 
+// ==========================
+// DEPARTMENT MODEL
+// ==========================
+
+model Department {
+  id                   String   @id
+  translations        Json
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+}
 
 
 // ==========================
