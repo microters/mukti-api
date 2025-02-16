@@ -12,46 +12,59 @@ datasource db {
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
+
 // ==========================
 // User MODEL
 // ==========================
 model User {
-  id          String   @id @default(uuid())   // Unique ID, auto-generated using UUID
-  phoneNumber String   @unique                // User's phone number, unique constraint
-  name        String?  // User's name, optional
-  email       String?  @unique                // User's email, unique constraint
-  password    String   // User's password
-  createdAt   DateTime @default(now())        // Timestamp for when the user was created
+  id          String  @id @default(uuid())
+  name        String
+  email       String  @unique
+  phoneNumber String
+  password    String
+  role        String @default("user")
+  isVerified  Boolean @default(false)
+  createdAt   DateTime @default(now())
 }
+
+model OTP {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  otp       String
+  name      String
+  phoneNumber String
+  password  String
+  role        String @default("user")
+  createdAt DateTime @default(now())
+}
+
+model PasswordReset {
+  id        String   @id @default(uuid())
+  email     String
+  token     String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime @default(now()) @db.Timestamp(6)
+}
+
+
+
 // ==========================
 // DOCTOR MODEL
 // ==========================
 
 model Doctor {
   id                  String   @id @default(uuid())
-  name                Json
-  designation         Json
-  department          Json
-  shortBio            Json?
-  contactNumber       Json
-  contactNumberSerial Json
-  gender              Json
+  email               String   @unique
   profilePhoto        String 
-  email               String  @unique
-  appointmentFee      Float
-  followUpFee         Float
-  patientAttended     Int
-  avgConsultationTime Json
-  academicQualiFication Json 
-  yearsOfExperience   Json 
+  translations        Json     // ✅ সমস্ত ভাষাভিত্তিক ডাটা এখানে থাকবে
   memberships         Membership[]
   awards              Award[]
   treatments          Treatment[]
   conditions          Condition[]
   schedule            Schedule[]
   faqs                FAQ[]
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   Appointment Appointment[]
 }
