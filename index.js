@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 // const bodyParser = require("body-parser");
 
 const doctorRoutes = require("./routes/doctor");
+const departmentRoutes = require("./routes/department");
 const patientRoutes = require("./routes/patient");
 const appoinmentRoutes = require("./routes/appointment");
 const authRoutes = require("./routes/authRoutes");
@@ -35,6 +36,7 @@ app.use(express.json()); // Ensure JSON parsing
 
 // ✅ Routes
 app.use("/api/doctor", doctorRoutes);
+app.use("/api/department", departmentRoutes);
 app.use("/api/patient", patientRoutes);
 app.use("/api/appointment", appoinmentRoutes);
 app.use("/api/auth", authRoutes);
