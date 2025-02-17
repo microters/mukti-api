@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 5000;
 
 // ✅ Enable CORS for Next.js Frontend
 const corsOptions = {
-  origin: "http://localhost:3000", // ✅ Adjust this for production
+  origin: "http://localhost:5000", // ✅ Adjust this for production
   methods: "GET,POST,PUT,DELETE",
   credentials: true,
 };
