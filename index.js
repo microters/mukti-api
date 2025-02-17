@@ -19,7 +19,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
+app.use("/uploads", express.static("uploads"));
 // ✅ Enable CORS for Next.js Frontend
 const corsOptions = {
   origin: "http://localhost:5000", // ✅ Adjust this for production
