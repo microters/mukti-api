@@ -244,3 +244,19 @@ model Category {
   name   String @unique
   blogs  Blog[] @relation("BlogCategories")
 }
+
+
+// ==========================
+// Review MODEL
+// ==========================
+model Review {
+  id         Int     @id @default(autoincrement())
+  name       String
+  role       String  // ✅ Make sure this exists
+  image      String?
+  rating     Int
+  reviewText String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+

@@ -7,6 +7,7 @@ const doctorRoutes = require("./routes/doctor");
 const departmentRoutes = require("./routes/department");
 const patientRoutes = require("./routes/patient");
 const appoinmentRoutes = require("./routes/appointment");
+const reveiewRoute = require("./routes/reveiewRoute");
 const authRoutes = require("./routes/authRoutes");
 const registerRoutes = require("./routes/register"); // Import the register routes
 const verifyOtpRoutes = require("./routes/verifyOtp"); // Import the verify OTP routes
@@ -39,6 +40,7 @@ app.use("/api/doctor", doctorRoutes);
 app.use("/api/department", departmentRoutes);
 app.use("/api/patient", patientRoutes);
 app.use("/api/appointment", appoinmentRoutes);
+app.use("/api/reviews", reveiewRoute);
 app.use("/api/auth", authRoutes);
 app.use("/api/register", registerRoutes);  // Register the /register route
 app.use("/api/verify-otp", verifyOtpRoutes); // Register the /verify-otp route
