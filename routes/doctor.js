@@ -1,19 +1,37 @@
 const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const authenticateAPIKey = require("../middleware/authMiddleware");
-
+const multer = require("multer");
+const path = require("path");
 const prisma = new PrismaClient();
 const router = express.Router();
+// 📌 Multer Configuration (File Upload)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "public/uploads"); // Store images in `public/uploads`
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "-" + file.originalname); // Unique filename
+  },
+});
 
-/**
- * @route   POST /api/doctor/add
- * @desc    Add a new doctor with multi-language support
- */
-router.post("/add", authenticateAPIKey, async (req, res) => {
+const fileFilter = (req, file, cb) => {
+  const allowedMimeTypes = ["image/jpeg", "image/png", "image/jpg"];
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only images (JPG, PNG) are allowed"), false);
+  }
+};
+
+const upload = multer({ storage, fileFilter });
+
+// 🟢 Add a New Doctor with Image Upload
+router.post("/add", authenticateAPIKey, upload.single("profilePhoto"), async (req, res) => {
   try {
     console.log("Received Data:", req.body);
 
-    const { email, profilePhoto, translations, memberships = [], awards = [], treatments = [], conditions = [], schedule = [], faqs = [] } = req.body;
+    const { email, translations, memberships = [], awards = [], treatments = [], conditions = [], schedule = [], faqs = [] } = req.body;
 
     if (!email) return res.status(400).json({ error: "Email is required" });
     if (!translations || typeof translations !== "object") return res.status(400).json({ error: "Translations must be a valid JSON object." });
@@ -21,10 +39,13 @@ router.post("/add", authenticateAPIKey, async (req, res) => {
     const existingDoctor = await prisma.doctor.findUnique({ where: { email } });
     if (existingDoctor) return res.status(400).json({ error: "A doctor with this email already exists." });
 
+    // Get uploaded file URL
+    const profilePhoto = req.file ? `/uploads/${req.file.filename}` : null;
+
     const newDoctor = await prisma.doctor.create({
       data: {
         email,
-        profilePhoto: profilePhoto || null,
+        profilePhoto,
         translations,
         memberships: { create: memberships.map(m => ({ name: m.name })) },
         awards: { create: awards.map(a => ({ title: a.title })) },
@@ -50,6 +71,7 @@ router.post("/add", authenticateAPIKey, async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 
 /**
  * @route   GET /api/doctor
