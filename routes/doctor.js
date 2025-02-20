@@ -5,54 +5,55 @@ const multer = require("multer");
 const path = require("path");
 const prisma = new PrismaClient();
 const router = express.Router();
+const fs = require("fs");
 // 📌 Multer Configuration (File Upload)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "public/uploads"); // Store images in `public/uploads`
+    const uploadDir = "uploads/";
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname); // Unique filename
+    // Unique file name
+    const uniqueName = Date.now() + "-" + file.originalname;
+    cb(null, uniqueName);
   },
 });
 
-const fileFilter = (req, file, cb) => {
-  const allowedMimeTypes = ["image/jpeg", "image/png", "image/jpg"];
-  if (allowedMimeTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error("Only images (JPG, PNG) are allowed"), false);
-  }
-};
+const upload = multer({ storage });
 
-const upload = multer({ storage, fileFilter });
+
+// Ensure static files are served from the 'public/uploads' directory
+router.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+
+
+
 
 // 🟢 Add a New Doctor with Image Upload
 router.post("/add", authenticateAPIKey, upload.single("profilePhoto"), async (req, res) => {
   try {
-    console.log("Received Data:", req.body);
+    const data = JSON.parse(req.body.data); // Parse JSON data
+    const { email, translations, memberships = [], awards = [], treatments = [], conditions = [], schedule = [], faqs = [] } = data;
 
-    const { email, translations, memberships = [], awards = [], treatments = [], conditions = [], schedule = [], faqs = [] } = req.body;
+    // Check if profile photo exists, otherwise set default
+    const icon = req.file ? `/uploads/${req.file.filename}` : "https://placehold.co/100"; // Use `icon` instead of `profilePhoto`
+console.log(icon);
 
-    if (!email) return res.status(400).json({ error: "Email is required" });
-    if (!translations || typeof translations !== "object") return res.status(400).json({ error: "Translations must be a valid JSON object." });
-
-    const existingDoctor = await prisma.doctor.findUnique({ where: { email } });
-    if (existingDoctor) return res.status(400).json({ error: "A doctor with this email already exists." });
-
-    // Get uploaded file URL
-    const profilePhoto = req.file ? `/uploads/${req.file.filename}` : null;
-
+    // Create new doctor in the database
     const newDoctor = await prisma.doctor.create({
       data: {
         email,
-        profilePhoto,
+        icon,  // Use icon to store the profile photo path
         translations,
         memberships: { create: memberships.map(m => ({ name: m.name })) },
         awards: { create: awards.map(a => ({ title: a.title })) },
         treatments: { create: treatments.map(t => ({ name: t.name })) },
         conditions: { create: conditions.map(c => ({ name: c.name })) },
         schedule: { create: schedule.map(s => ({ day: s.day, startTime: s.startTime, endTime: s.endTime })) },
-        faqs: { create: faqs.map(f => ({ question: f.question, answer: f.answer })) }
+        faqs: { create: faqs.map(f => ({ question: f.question, answer: f.answer })) },
       },
       include: {
         memberships: true,
@@ -61,16 +62,18 @@ router.post("/add", authenticateAPIKey, upload.single("profilePhoto"), async (re
         conditions: true,
         schedule: true,
         faqs: true
-      }
+       
+      },
     });
 
-    console.log("✅ Doctor Added:", newDoctor);
     res.status(201).json({ message: "Doctor added successfully", doctor: newDoctor });
   } catch (error) {
     console.error("❌ Error adding doctor:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+
 
 
 /**
@@ -105,6 +108,7 @@ router.get("/", authenticateAPIKey, async (req, res) => {
         conditions: true,
         schedule: true,
         faqs: true
+        
       },
       orderBy: sort === "experience" ? { translations: { path: [lang, "yearsOfExperience"], order: "desc" } } : undefined
     });
@@ -133,7 +137,8 @@ router.get("/:id", authenticateAPIKey, async (req, res) => {
         treatments: true,
         conditions: true,
         schedule: true,
-        faqs: true
+        faqs: true,
+        
       }
     });
 
@@ -142,7 +147,7 @@ router.get("/:id", authenticateAPIKey, async (req, res) => {
     res.status(200).json({
       id: doctor.id,
       email: doctor.email,
-      profilePhoto: doctor.profilePhoto,
+      icon: doctor.icon,
       translations: doctor.translations[lang] || doctor.translations["en"],
       memberships: doctor.memberships.map(m => m.name),
       awards: doctor.awards.map(a => a.title),
@@ -151,6 +156,8 @@ router.get("/:id", authenticateAPIKey, async (req, res) => {
       schedule: doctor.schedule.map(s => ({ day: s.day, startTime: s.startTime, endTime: s.endTime })),
       faqs: doctor.faqs.map(f => ({ question: f.question, answer: f.answer }))
     });
+ 
+    
   } catch (error) {
     console.error("❌ Error fetching doctor:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -200,7 +207,8 @@ router.put("/edit/:id", authenticateAPIKey, async (req, res) => {
         treatments: true,
         conditions: true,
         schedule: true,
-        faqs: true
+        faqs: true,
+        
       }
     });
 

@@ -55,8 +55,8 @@ model PasswordReset {
 model Doctor {
   id                  String   @id @default(uuid())
   email               String   @unique
-  profilePhoto        String 
-  translations        Json     // ✅ সমস্ত ভাষাভিত্তিক ডাটা এখানে থাকবে
+  icon        String?  // Add this line to store the profile photo path
+  translations        Json     // Stores the translations
   memberships         Membership[]
   awards              Award[]
   treatments          Treatment[]
@@ -66,7 +66,7 @@ model Doctor {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  Appointment Appointment[]
+  Appointment         Appointment[]
 }
 
 
