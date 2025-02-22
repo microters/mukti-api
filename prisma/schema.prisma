@@ -52,19 +52,21 @@ model PasswordReset {
 // DOCTOR MODEL
 // ==========================
 
+
 model Doctor {
-  id                  String   @id @default(uuid())
-  email               String   @unique
-  profilePhoto        String 
-  translations        Json     // ✅ সমস্ত ভাষাভিত্তিক ডাটা এখানে থাকবে
-  memberships         Membership[]
-  awards              Award[]
-  treatments          Treatment[]
-  conditions          Condition[]
-  schedule            Schedule[]
-  faqs                FAQ[]
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id          String   @id @default(uuid())
+  email       String   @unique
+  slug        String?   @unique
+  icon        String?  // Profile photo path
+  translations Json
+  memberships Membership[]
+  awards      Award[]
+  treatments  Treatment[]
+  conditions  Condition[]
+  schedule    Schedule[]
+  faqs        FAQ[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   Appointment Appointment[]
 }
