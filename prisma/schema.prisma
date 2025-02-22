@@ -52,21 +52,23 @@ model PasswordReset {
 // DOCTOR MODEL
 // ==========================
 
-model Doctor {
-  id                  String   @id @default(uuid())
-  email               String   @unique
-  icon        String?  // Add this line to store the profile photo path
-  translations        Json     // Stores the translations
-  memberships         Membership[]
-  awards              Award[]
-  treatments          Treatment[]
-  conditions          Condition[]
-  schedule            Schedule[]
-  faqs                FAQ[]
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
 
-  Appointment         Appointment[]
+model Doctor {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  slug        String?   @unique
+  icon        String?  // Profile photo path
+  translations Json
+  memberships Membership[]
+  awards      Award[]
+  treatments  Treatment[]
+  conditions  Condition[]
+  schedule    Schedule[]
+  faqs        FAQ[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  Appointment Appointment[]
 }
 
 

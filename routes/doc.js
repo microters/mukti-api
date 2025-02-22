@@ -18,15 +18,12 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    // Unique file name
     const uniqueName = Date.now() + "-" + file.originalname;
     cb(null, uniqueName);
   },
 });
 
 const upload = multer({ storage });
-
-// Ensure static files are served from the 'public/uploads' directory
 router.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // 📌 Function to Generate Unique Slug
@@ -51,25 +48,22 @@ const generateUniqueSlug = async (name, existingId = null) => {
   return slug;
 };
 
+
 // 🟢 Add a New Doctor with Image Upload
 router.post("/add", authenticateAPIKey, upload.single("profilePhoto"), async (req, res) => {
   try {
-    const data = JSON.parse(req.body.data); // Parse JSON data
+    const data = JSON.parse(req.body.data);
     const { email, translations, memberships = [], awards = [], treatments = [], conditions = [], schedule = [], faqs = [] } = data;
-    console.log(translations);
-    
-    const name = translations?.en?.name || translations?.bn?.name || "unknown";
-    const slug = await generateUniqueSlug(name, null); 
-    // Check if profile photo exists, otherwise set default
-    const icon = req.file ? `/uploads/${req.file.filename}` : "https://placehold.co/100";
-    console.log(icon);
 
-    // Create new doctor in the database
+    const name = translations?.en?.name || translations?.bn?.name || "unknown";
+    const slug = await generateUniqueSlug(name, null);  // ✅ `null` পাঠানো হচ্ছে নতুন ডাটার জন্য
+    const icon = req.file ? `/uploads/${req.file.filename}` : "https://placehold.co/100";
+
     const newDoctor = await prisma.doctor.create({
       data: {
         email,
-        icon, 
         slug,
+        icon,
         translations,
         memberships: { create: memberships.map(m => ({ name: m.name })) },
         awards: { create: awards.map(a => ({ title: a.title })) },
@@ -78,16 +72,8 @@ router.post("/add", authenticateAPIKey, upload.single("profilePhoto"), async (re
         schedule: { create: schedule.map(s => ({ day: s.day, startTime: s.startTime, endTime: s.endTime })) },
         faqs: { create: faqs.map(f => ({ question: f.question, answer: f.answer })) },
       },
-      include: {
-        memberships: true,
-        awards: true,
-        treatments: true,
-        conditions: true,
-        schedule: true,
-        faqs: true
-      },
+      include: { memberships: true, awards: true, treatments: true, conditions: true, schedule: true, faqs: true },
     });
-    console.log(newDoctor);
 
     res.status(201).json({ message: "Doctor added successfully", doctor: newDoctor });
   } catch (error) {
@@ -96,11 +82,8 @@ router.post("/add", authenticateAPIKey, upload.single("profilePhoto"), async (re
   }
 });
 
-/**
- * @route   GET /api/doctor
- * @desc    Get all doctors with filters, pagination & language support
- * @query   ?lang=en | ?page=1&limit=10 | ?search=John | ?department=Cardiology
- */
+
+// 🟢 Get All Doctors with Filters, Pagination & Search
 router.get("/", authenticateAPIKey, async (req, res) => {
   try {
     const { lang = "en", page = 1, limit = 10, search = "", department = "", sort = "" } = req.query;
@@ -121,15 +104,8 @@ router.get("/", authenticateAPIKey, async (req, res) => {
       where: filters,
       skip: parseInt(skip),
       take: parseInt(limit),
-      include: {
-        memberships: true,
-        awards: true,
-        treatments: true,
-        conditions: true,
-        schedule: true,
-        faqs: true
-      },
-      orderBy: sort === "experience" ? { translations: { path: [lang, "yearsOfExperience"], order: "desc" } } : undefined
+      include: { memberships: true, awards: true, treatments: true, conditions: true, schedule: true, faqs: true },
+      orderBy: sort === "experience" ? { translations: { path: [lang, "yearsOfExperience"], order: "desc" } } : undefined,
     });
 
     res.status(200).json(doctors);
@@ -139,137 +115,50 @@ router.get("/", authenticateAPIKey, async (req, res) => {
   }
 });
 
-/**
- * @route   GET /api/doctor/slug/:slug
- * @desc    Get a doctor by slug with all related data
- */
-router.get("/slug/:slug", authenticateAPIKey, async (req, res) => {
+// 🟢 Get a Doctor by ID or Slug
+router.get("/:identifier", authenticateAPIKey, async (req, res) => {
   try {
-    const { slug } = req.params;
+    const { identifier } = req.params;
     const { lang = "en" } = req.query;
 
     const doctor = await prisma.doctor.findFirst({
-      where: { slug },
-      include: {
-        memberships: true,
-        awards: true,
-        treatments: true,
-        conditions: true,
-        schedule: true,
-        faqs: true,
-      },
+      where: { OR: [{ id: identifier }, { slug: identifier }] },
+      include: { memberships: true, awards: true, treatments: true, conditions: true, schedule: true, faqs: true },
     });
 
     if (!doctor) return res.status(404).json({ error: "Doctor not found" });
 
-    res.status(200).json({
-      id: doctor.id,
-      email: doctor.email,
-      slug: doctor.slug,
-      icon: doctor.icon,
-      translations: doctor.translations[lang] || doctor.translations["en"],
-      memberships: doctor.memberships.map(m => m.name),
-      awards: doctor.awards.map(a => a.title),
-      treatments: doctor.treatments.map(t => t.name),
-      conditions: doctor.conditions.map(c => c.name),
-      schedule: doctor.schedule.map(s => ({ day: s.day, startTime: s.startTime, endTime: s.endTime })),
-      faqs: doctor.faqs.map(f => ({ question: f.question, answer: f.answer })),
-    });
+    res.status(200).json(doctor);
   } catch (error) {
-    console.error("❌ Error fetching doctor by slug:", error);
+    console.error("❌ Error fetching doctor:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-/**
- * @route   GET /api/doctor/:id
- * @desc    Get a doctor by ID (used for editing)
- */
-router.get("/:id", authenticateAPIKey, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { lang = "en" } = req.query;
-
-    const doctor = await prisma.doctor.findUnique({
-      where: { id },
-      include: {
-        memberships: true,
-        awards: true,
-        treatments: true,
-        conditions: true,
-        schedule: true,
-        faqs: true,
-      },
-    });
-
-    if (!doctor) return res.status(404).json({ error: "Doctor not found" });
-
-    res.status(200).json({
-      id: doctor.id,
-      email: doctor.email,
-      slug: doctor.slug,
-      icon: doctor.icon,
-      translations: doctor.translations[lang] || doctor.translations["en"],
-      memberships: doctor.memberships.map(m => m.name),
-      awards: doctor.awards.map(a => a.title),
-      treatments: doctor.treatments.map(t => t.name),
-      conditions: doctor.conditions.map(c => c.name),
-      schedule: doctor.schedule.map(s => ({ day: s.day, startTime: s.startTime, endTime: s.endTime })),
-      faqs: doctor.faqs.map(f => ({ question: f.question, answer: f.answer })),
-    });
-  } catch (error) {
-    console.error("❌ Error fetching doctor by id:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
-/**
- * @route   PUT /api/doctor/edit/:id
- * @desc    Update doctor details with multi-language support (using ID)
- */
+// 🟢 Update Doctor with Editable Slug
 router.put("/edit/:id", authenticateAPIKey, async (req, res) => {
   try {
     const { id } = req.params;
     const { translations, memberships, awards, treatments, conditions, schedule, faqs, slug: newSlug } = req.body;
 
-
-    if (!translations || typeof translations !== "object") {
-      return res.status(400).json({ error: "Translations must be a valid JSON object." });
-    }
-
     const existingDoctor = await prisma.doctor.findUnique({ where: { id } });
     if (!existingDoctor) return res.status(404).json({ error: "Doctor not found" });
 
-   
-    const updatedTranslations = { ...existingDoctor.translations };
-
-    for (const lang in translations) {
-      updatedTranslations[lang] = {
-        ...updatedTranslations[lang], 
-        ...translations[lang], 
-      };
-    }
+    let slug = newSlug || await generateUniqueSlug(translations?.en?.name || translations?.bn?.name || "unknown", id);
 
     const updatedDoctor = await prisma.doctor.update({
       where: { id },
       data: {
-        slug: newSlug || existingDoctor.slug,
-        translations: updatedTranslations,
+        slug,
+        translations,
         memberships: { deleteMany: {}, create: memberships.map(m => ({ name: m.name })) },
         awards: { deleteMany: {}, create: awards.map(a => ({ title: a.title })) },
         treatments: { deleteMany: {}, create: treatments.map(t => ({ name: t.name })) },
         conditions: { deleteMany: {}, create: conditions.map(c => ({ name: c.name })) },
         schedule: { deleteMany: {}, create: schedule.map(s => ({ day: s.day, startTime: s.startTime, endTime: s.endTime })) },
-        faqs: { deleteMany: {}, create: faqs.map(f => ({ question: f.question, answer: f.answer })) }
+        faqs: { deleteMany: {}, create: faqs.map(f => ({ question: f.question, answer: f.answer })) },
       },
-      include: {
-        memberships: true,
-        awards: true,
-        treatments: true,
-        conditions: true,
-        schedule: true,
-        faqs: true,
-      }
+      include: { memberships: true, awards: true, treatments: true, conditions: true, schedule: true, faqs: true },
     });
 
     res.status(200).json({ message: "Doctor updated successfully", doctor: updatedDoctor });
@@ -279,10 +168,6 @@ router.put("/edit/:id", authenticateAPIKey, async (req, res) => {
   }
 });
 
-/**
- * @route   DELETE /api/doctor/delete/:id
- * @desc    Delete a doctor by ID
- */
 router.delete("/delete/:id", authenticateAPIKey, async (req, res) => {
   try {
     const { id } = req.params;
