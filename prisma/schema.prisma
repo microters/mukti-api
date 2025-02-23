@@ -119,14 +119,14 @@ model Appointment {
 
 model Patient { 
   id          String  @id @default(uuid())
-  name        Json
-  phoneNumber Json
+  name        String
+  phoneNumber String
   email       String  @unique
-  gender      Json
-  bloodGroup  Json
+  gender      String
+  bloodGroup  String
   dateOfBirth DateTime
-  age         Json
-  weight      Json
+  age         String
+  weight      String
   image       String  // URL of the image
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
