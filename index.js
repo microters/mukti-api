@@ -13,7 +13,10 @@ const registerRoutes = require("./routes/register"); // Import the register rout
 const verifyOtpRoutes = require("./routes/verifyOtp"); // Import the verify OTP routes
 const loginRoutes = require("./routes/login"); // Import the verify OTP routes
 const forgotRoutes = require("./routes/forgot-password"); // Import the verify OTP routes
-
+const scheduleRoutes=require("./routes/schedule")
+const homeRoutes=require("./routes/home")
+const blogRoutes=require("./routes/blog")
+const categoryRoutes=require("./routes/categories")
 
 
 dotenv.config();
@@ -46,6 +49,10 @@ app.use("/api/register", registerRoutes);  // Register the /register route
 app.use("/api/verify-otp", verifyOtpRoutes); // Register the /verify-otp route
 app.use("/api/login", loginRoutes);  // Register the /register route
 app.use("/api/forgot-password", forgotRoutes); // Register the /verify-otp route
+app.use("/api/schedule", scheduleRoutes);
+app.use("/api/home", homeRoutes);
+app.use("/api/blogs", blogRoutes);
+app.use("/api/category", categoryRoutes);
 // ✅ Start the Server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
