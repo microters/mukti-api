@@ -367,3 +367,14 @@ model AppointmentProcessSection {
   homepage      Homepage   @relation(fields: [homepageId], references: [id])
 }
 
+// ==========================
+// Add Page MODEL
+// ==========================
+model Page {
+  id            Int    @id @default(autoincrement())
+  name          String?  // ✅ Ensure this field exists
+  slug          String @unique
+  translations  Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
