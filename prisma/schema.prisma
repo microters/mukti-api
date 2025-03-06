@@ -68,8 +68,9 @@ model Doctor {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  Appointment Appointment[]
+  appointments Appointment[]  // ✅ Fix: Use lowercase 'appointments'
 }
+
 
 
 // ==========================
@@ -193,11 +194,13 @@ model Schedule {
   maxPatients Int          @default(50)
   doctorId    String
   doctor      Doctor       @relation(fields: [doctorId], references: [id])
+  
   // Relation with time slots
   timeSlots   TimeSlot[]
 
-  Appointment Appointment[]
+  appointments Appointment[]  // ✅ Fix: Use lowercase 'appointments'
 }
+
 model TimeSlot {
   id         String   @id @default(uuid())
   scheduleId String
