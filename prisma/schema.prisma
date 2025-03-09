@@ -17,26 +17,22 @@ datasource db {
 // User MODEL
 // ==========================
 model User {
-  id          String  @id @default(uuid())
-  name        String
-  email       String  @unique
-  phoneNumber String
-  password    String
-  role        String @default("user")
-  isVerified  Boolean @default(false)
-  createdAt   DateTime @default(now())
+  id            String   @id @default(uuid()) // Unique user ID
+  name          String   // User's Full Name
+  mobile        String   @unique // Mobile number (Used for login)
+  profilePhoto  String?  // Optional Profile Picture
+  username      String?  @unique // Optional Username
+  createdAt     DateTime @default(now())
 }
 
 model OTP {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  otp       String
-  name      String
-  phoneNumber String
-  password  String
-  role        String @default("user")
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  mobile      String   @unique // OTP sent to this number
+  otp         String   // OTP Code
+  expiresAt   DateTime // Expiry time (5 minutes)
+  isUsed      Boolean  @default(false)
 }
+
 
 model PasswordReset {
   id        String   @id @default(uuid())
@@ -380,4 +376,15 @@ model Page {
   translations  Json
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+
+model PatientAppointment {
+  id          String   @id @default(uuid())
+  patientName String
+  phone       String
+  department  String
+  doctor      String
+  day        String
+  createdAt   DateTime @default(now())
 }

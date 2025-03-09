@@ -6,9 +6,10 @@ const dotenv = require("dotenv");
 const doctorRoutes = require("./routes/doctor");
 const departmentRoutes = require("./routes/department");
 const patientRoutes = require("./routes/patient");
-const appoinmentRoutes = require("./routes/appointment");
+const appoinmentRoutes = require("./routes/admin/appointment");
+const patientAppointmentRoutes = require("./routes/patient/appointment");
 const reveiewRoute = require("./routes/reveiewRoute");
-const authRoutes = require("./routes/authRoutes");
+const authRoutes = require("./routes/authRoute");
 const registerRoutes = require("./routes/register"); // Import the register routes
 const verifyOtpRoutes = require("./routes/verifyOtp"); // Import the verify OTP routes
 const loginRoutes = require("./routes/login"); // Import the verify OTP routes
@@ -28,9 +29,10 @@ const PORT = process.env.PORT || 5000;
 app.use("/uploads", express.static("uploads"));
 // ✅ Enable CORS for Next.js Frontend
 const corsOptions = {
-  origin: "http://localhost:3000", // ✅ Adjust this for production
+  origin: ["http://localhost:3000", "http://localhost:3001"],// ✅ Adjust this for production
   methods: "GET,POST,PUT,DELETE",
   credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization"],
 };
 
 app.use(cors(corsOptions));
@@ -45,6 +47,7 @@ app.use("/api/doctor", doctorRoutes);
 app.use("/api/department", departmentRoutes);
 app.use("/api/patient", patientRoutes);
 app.use("/api/appointment", appoinmentRoutes);
+app.use("/api/patient/appointment", patientAppointmentRoutes);
 app.use("/api/reviews", reveiewRoute);
 app.use("/api/auth", authRoutes);
 app.use("/api/register", registerRoutes);  // Register the /register route
