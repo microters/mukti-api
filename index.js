@@ -20,6 +20,7 @@ const blogRoutes=require("./routes/blog")
 const categoryRoutes=require("./routes/categories")
 const pageRoutes=require("./routes/page")
 const voiceRoutes=require("./routes/voiceclone")
+const userRoute=require("./routes/userRoutes")
 
 
 dotenv.config();
@@ -60,6 +61,7 @@ app.use("/api/blogs", blogRoutes);
 app.use("/api/category", categoryRoutes);
 app.use("/api/page", pageRoutes);
 app.use("/api/voice", voiceRoutes);
+app.use("/api/user", userRoute);
 // ✅ Start the Server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
