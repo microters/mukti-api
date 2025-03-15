@@ -278,25 +278,33 @@ router.put("/edit/:id", authenticateAPIKey, async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
-/**
- * @route   DELETE /api/doctor/delete/:id
- * @desc    Delete a doctor by ID
- */
 router.delete("/delete/:id", authenticateAPIKey, async (req, res) => {
   try {
     const { id } = req.params;
 
     const existingDoctor = await prisma.doctor.findUnique({ where: { id } });
-    if (!existingDoctor) return res.status(404).json({ error: "Doctor not found" });
+    if (!existingDoctor) {
+      return res.status(404).json({ error: "Doctor not found" });
+    }
 
+    // Delete related records first
+    await prisma.appointment.deleteMany({ where: { doctorId: id } });
+    await prisma.schedule.deleteMany({ where: { doctorId: id } });
+    await prisma.membership.deleteMany({ where: { doctorId: id } });
+    await prisma.award.deleteMany({ where: { doctorId: id } });
+    await prisma.treatment.deleteMany({ where: { doctorId: id } });
+    await prisma.condition.deleteMany({ where: { doctorId: id } });
+
+    // Now delete the doctor
     await prisma.doctor.delete({ where: { id } });
 
     res.status(200).json({ message: "Doctor deleted successfully" });
   } catch (error) {
     console.error("❌ Error deleting doctor:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: "Failed to delete doctor" });
   }
 });
+
+
 
 module.exports = router;

@@ -17,26 +17,22 @@ datasource db {
 // User MODEL
 // ==========================
 model User {
-  id          String  @id @default(uuid())
-  name        String
-  email       String  @unique
-  phoneNumber String
-  password    String
-  role        String @default("user")
-  isVerified  Boolean @default(false)
-  createdAt   DateTime @default(now())
+  id            String   @id @default(uuid()) // Unique user ID
+  name          String   // User's Full Name
+  mobile        String   @unique // Mobile number (Used for login)
+  profilePhoto  String?  // Optional Profile Picture
+  username      String?  @unique // Optional Username
+  createdAt     DateTime @default(now())
 }
 
 model OTP {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  otp       String
-  name      String
-  phoneNumber String
-  password  String
-  role        String @default("user")
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  mobile      String   @unique // OTP sent to this number
+  otp         String   // OTP Code
+  expiresAt   DateTime // Expiry time (5 minutes)
+  isUsed      Boolean  @default(false)
 }
+
 
 model PasswordReset {
   id        String   @id @default(uuid())
@@ -68,8 +64,9 @@ model Doctor {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  Appointment Appointment[]
+  appointments Appointment[]  // ✅ Fix: Use lowercase 'appointments'
 }
+
 
 
 // ==========================
@@ -92,22 +89,24 @@ model Department {
 // ==========================
 
 model Appointment {
-  id                String   @id @default(uuid())
+  id                String    @id @default(uuid())
   doctorId          String
   patientId         String
+  scheduleId        String?   // নতুন ফিল্ড, যদি শিডিউল থাকে
+  serialNumber      Int?
   consultationFee   Float
   vat               Float
-  promoCode         String?  
-  consultationType  ConsultationType 
-  paymentMethod     PaymentMethod 
-  directorReference String?  
-  status            String   @default("Pending") 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  promoCode         String?
+  consultationType  ConsultationType
+  paymentMethod     PaymentMethod
+  directorReference String?
+  status            String    @default("Pending")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  // ✅ Keep the relation so Prisma works correctly
-  doctor   Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  patient  Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor   Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient  Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  schedule Schedule? @relation(fields: [scheduleId], references: [id])
 }
 
 
@@ -119,14 +118,14 @@ model Appointment {
 
 model Patient { 
   id          String  @id @default(uuid())
-  name        Json
-  phoneNumber Json
+  name        String
+  phoneNumber String
   email       String  @unique
-  gender      Json
-  bloodGroup  Json
+  gender      String
+  bloodGroup  String
   dateOfBirth DateTime
-  age         Json
-  weight      Json
+  age         String
+  weight      String
   image       String  // URL of the image
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -184,13 +183,31 @@ model Condition {
 // ==========================
 
 model Schedule {
-  id        String @id @default(uuid())
-  doctorId  String
-  day       String // e.g., Monday, Tuesday
-  startTime String // e.g., 09:00 AM
-  endTime   String // e.g., 05:00 PM
-  doctor    Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  id          String       @id @default(uuid())
+  day         String       // উদাহরণ: "Saturday"
+  startTime   String       // উদাহরণ: "09:00"
+  endTime     String       // উদাহরণ: "13:00"
+  maxPatients Int          @default(50)
+  doctorId    String
+  doctor      Doctor       @relation(fields: [doctorId], references: [id])
+  
+  // Relation with time slots
+  timeSlots   TimeSlot[]
+
+  appointments Appointment[]  // ✅ Fix: Use lowercase 'appointments'
 }
+
+model TimeSlot {
+  id         String   @id @default(uuid())
+  scheduleId String
+  start      String
+  end        String
+  isBooked   Boolean  @default(false)
+  schedule   Schedule @relation(fields: [scheduleId], references: [id])
+}
+
+
+
 
 // ==========================
 // FAQ MODEL
@@ -225,16 +242,15 @@ enum PaymentMethod {
 
 model Blog {
   id              String   @id @default(uuid())
-  metaTitle       String?
-  metaDescription String?
-  title           String
-  slug            String   @unique
-  description     String
-  content         String
+  translations    Json
   image           String?  // Stores the uploaded image filename
-  categories      Category[] @relation("BlogCategories")
+  categoryId   String?   // Make it optional and match the type with Category.id
+  categoryName String? // Make it optional
+  category        Category? @relation(fields: [categoryId], references: [id])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  Category Category[] @relation("BlogCategories")
 }
 
 // ==========================
@@ -242,10 +258,14 @@ model Blog {
 // ==========================
 
 model Category {
-  id     String @id @default(uuid())
-  name   String @unique
-  blogs  Blog[] @relation("BlogCategories")
+  id           String  @id @default(uuid())
+  translations Json    @default("{}") 
+  updatedAt    DateTime @updatedAt @default(now()) // ✅ নতুন ডিফল্ট ভ্যালু দেওয়া হলো
+  blogs        Blog[]   @relation("BlogCategories")
+
+  Blog Blog[]
 }
+
 
 
 // ==========================
@@ -262,3 +282,109 @@ model Review {
   updatedAt  DateTime @updatedAt
 }
 
+// ==========================
+// Home Page MODEL
+// ==========================
+
+
+model Homepage {
+  
+  id                     Int                          @id @default(1)
+  
+  heroSection            HeroSection?
+  featuresSection        FeaturesSection?
+  aboutSection           AboutSection?
+  appointmentSection     AppointmentSection?
+  whyChooseUsSection     WhyChooseUsSection?
+  downloadAppSection     DownloadAppSection?
+  appointmentProcess     AppointmentProcessSection?
+  
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+}
+
+model HeroSection {
+  id            Int    @id @default(autoincrement())
+ 
+  translations  Json
+  
+  homepageId    Int    @unique
+  homepage      Homepage   @relation(fields: [homepageId], references: [id])
+}
+
+model FeaturesSection {
+  id            Int    @id @default(autoincrement())
+ 
+  translations  Json
+  
+  homepageId    Int    @unique
+  homepage      Homepage   @relation(fields: [homepageId], references: [id])
+}
+
+model AboutSection {
+  id            Int    @id @default(autoincrement())
+
+  translations  Json
+  
+  homepageId    Int    @unique
+  homepage      Homepage   @relation(fields: [homepageId], references: [id])
+}
+
+model AppointmentSection {
+  id            Int    @id @default(autoincrement())
+
+  translations  Json
+  
+  homepageId    Int    @unique
+  homepage      Homepage   @relation(fields: [homepageId], references: [id])
+}
+
+model WhyChooseUsSection {
+  id            Int    @id @default(autoincrement())
+  
+  translations  Json
+  
+  homepageId    Int    @unique
+  homepage      Homepage   @relation(fields: [homepageId], references: [id])
+}
+
+model DownloadAppSection {
+  id            Int    @id @default(autoincrement())
+
+  translations  Json
+  
+  homepageId    Int    @unique
+  homepage      Homepage   @relation(fields: [homepageId], references: [id])
+}
+
+model AppointmentProcessSection {
+  id            Int    @id @default(autoincrement())
+ 
+  translations  Json
+  
+  homepageId    Int    @unique
+  homepage      Homepage   @relation(fields: [homepageId], references: [id])
+}
+
+// ==========================
+// Add Page MODEL
+// ==========================
+model Page {
+  id            Int    @id @default(autoincrement())
+  name          String?  // ✅ Ensure this field exists
+  slug          String @unique
+  translations  Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+
+model PatientAppointment {
+  id          String   @id @default(uuid())
+  patientName String
+  phone       String
+  department  String
+  doctor      String
+  day        String
+  createdAt   DateTime @default(now())
+}
