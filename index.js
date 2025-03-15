@@ -23,7 +23,7 @@ const PORT = process.env.PORT || 5000;
 app.use("/uploads", express.static("uploads"));
 // ✅ Enable CORS for Next.js Frontend
 const corsOptions = {
-  origin: "http://localhost:3000", // ✅ Adjust this for production
+  origin: "http://localhost:3001", // ✅ Adjust this for production
   methods: "GET,POST,PUT,DELETE",
   credentials: true,
 };
