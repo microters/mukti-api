@@ -76,7 +76,7 @@ model Doctor {
 model Department {
   id              String   @id @default(uuid()) // Generates UUID automatically
   translations    Json
-  icon           String?  // Stores the icon file path (nullable)
+  icon            String?  // Stores the icon file path (nullable)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
