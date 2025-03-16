@@ -60,8 +60,19 @@ router.post("/add", authenticateAPIKey, upload.single("profilePhoto"), async (re
     
     const name = translations?.en?.name || translations?.bn?.name || "unknown";
     const slug = await generateUniqueSlug(name, null); 
-    // Check if profile photo exists, otherwise set default
-    const icon = req.file ? `/uploads/${req.file.filename}` : "https://placehold.co/100";
+
+    // Extract gender from translations (both English and Bengali)
+    const gender = translations?.en?.gender || translations?.bn?.gender;
+
+    // Check gender and set default icon based on gender
+    const icon = req.file 
+      ? `/uploads/${req.file.filename}` 
+      : gender === 'male' 
+        ? "/uploads/doctor-placeholder-1.png" 
+        : gender === 'female' 
+        ? "/uploads/female.png" 
+        : "/uploads/doctor-placeholder-1.png"; // Default placeholder if gender is not defined
+
     console.log(icon);
 
     // Create new doctor in the database
@@ -95,6 +106,7 @@ router.post("/add", authenticateAPIKey, upload.single("profilePhoto"), async (re
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 
 /**
  * @route   GET /api/doctor
