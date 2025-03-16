@@ -225,57 +225,78 @@ router.get("/:id", authenticateAPIKey, async (req, res) => {
 
 /**
  * @route   PUT /api/doctor/edit/:id
- * @desc    Update doctor details with multi-language support (using ID)
+ * @desc    Update doctor details, including profile photo (if provided)
  */
-router.put("/edit/:id", authenticateAPIKey, async (req, res) => {
+router.put("/edit/:id", authenticateAPIKey, upload.single("profilePhoto"), async (req, res) => {
   try {
-    const { id } = req.params;
-    const { translations, memberships, awards, treatments, conditions, schedule, faqs, slug: newSlug } = req.body;
+      const { id } = req.params;
+      
+      // ✅ Parse JSON data from FormData
+      const {
+          translations, 
+          memberships = [], 
+          awards = [], 
+          treatments = [], 
+          conditions = [], 
+          schedule = [], 
+          faqs = [], 
+          slug: newSlug 
+      } = JSON.parse(req.body.data);
 
+      // ✅ Check if doctor exists
+      const existingDoctor = await prisma.doctor.findUnique({ where: { id } });
+      if (!existingDoctor) return res.status(404).json({ error: "Doctor not found" });
 
-    if (!translations || typeof translations !== "object") {
-      return res.status(400).json({ error: "Translations must be a valid JSON object." });
-    }
-
-    const existingDoctor = await prisma.doctor.findUnique({ where: { id } });
-    if (!existingDoctor) return res.status(404).json({ error: "Doctor not found" });
-
-   
-    const updatedTranslations = { ...existingDoctor.translations };
-
-    for (const lang in translations) {
-      updatedTranslations[lang] = {
-        ...updatedTranslations[lang], 
-        ...translations[lang], 
-      };
-    }
-
-    const updatedDoctor = await prisma.doctor.update({
-      where: { id },
-      data: {
-        slug: newSlug || existingDoctor.slug,
-        translations: updatedTranslations,
-        memberships: { deleteMany: {}, create: memberships.map(m => ({ name: m.name })) },
-        awards: { deleteMany: {}, create: awards.map(a => ({ title: a.title })) },
-        treatments: { deleteMany: {}, create: treatments.map(t => ({ name: t.name })) },
-        conditions: { deleteMany: {}, create: conditions.map(c => ({ name: c.name })) },
-        schedule: { deleteMany: {}, create: schedule.map(s => ({ day: s.day, startTime: s.startTime, endTime: s.endTime })) },
-        faqs: { deleteMany: {}, create: faqs.map(f => ({ question: f.question, answer: f.answer })) }
-      },
-      include: {
-        memberships: true,
-        awards: true,
-        treatments: true,
-        conditions: true,
-        schedule: true,
-        faqs: true,
+      // ✅ Handle profile photo update
+      let updatedIcon = existingDoctor.icon; // Keep old image if no new file is uploaded
+      if (req.file) {
+          // Delete old image if it exists
+          if (existingDoctor.icon && existingDoctor.icon.startsWith("/uploads/")) {
+              const oldImagePath = path.join(__dirname, "..", existingDoctor.icon);
+              if (fs.existsSync(oldImagePath)) {
+                  fs.unlinkSync(oldImagePath);
+              }
+          }
+          updatedIcon = `/uploads/${req.file.filename}`;
       }
-    });
 
-    res.status(200).json({ message: "Doctor updated successfully", doctor: updatedDoctor });
+      // ✅ Update translations
+      const updatedTranslations = { ...existingDoctor.translations };
+      for (const lang in translations) {
+          updatedTranslations[lang] = { 
+              ...updatedTranslations[lang], 
+              ...translations[lang] 
+          };
+      }
+
+      // ✅ Update doctor in the database
+      const updatedDoctor = await prisma.doctor.update({
+          where: { id },
+          data: {
+              slug: newSlug || existingDoctor.slug,
+              icon: updatedIcon, // ✅ Update profile photo
+              translations: updatedTranslations,
+              memberships: { deleteMany: {}, create: memberships.map(m => ({ name: m.name })) },
+              awards: { deleteMany: {}, create: awards.map(a => ({ title: a.title })) },
+              treatments: { deleteMany: {}, create: treatments.map(t => ({ name: t.name })) },
+              conditions: { deleteMany: {}, create: conditions.map(c => ({ name: c.name })) },
+              schedule: { deleteMany: {}, create: schedule.map(s => ({ day: s.day, startTime: s.startTime, endTime: s.endTime })) },
+              faqs: { deleteMany: {}, create: faqs.map(f => ({ question: f.question, answer: f.answer })) }
+          },
+          include: {
+              memberships: true,
+              awards: true,
+              treatments: true,
+              conditions: true,
+              schedule: true,
+              faqs: true,
+          }
+      });
+
+      res.status(200).json({ message: "Doctor updated successfully", doctor: updatedDoctor });
   } catch (error) {
-    console.error("❌ Error updating doctor:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+      console.error("❌ Error updating doctor:", error);
+      res.status(500).json({ error: "Internal Server Error" });
   }
 });
 router.delete("/delete/:id", authenticateAPIKey, async (req, res) => {

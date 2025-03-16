@@ -28,7 +28,12 @@ const sendOTP = async (mobileNumber) => {
       CampaignId: "null",
       SenderName: process.env.MIM_SMS_SENDER_NAME,
       TransactionType: "T",
-      Message: `Your OTP is: ${otp}. Valid for 5 minutes.`,
+      Message: `Dear Customer,
+
+Thank you for choosing muktishotpital. Your One Time Password (OTP) is ${otp}. Please note that this OTP is valid for 5 minutes only.
+
+Best regards,
+muktishotpital Team`
     };
 
     console.log("📤 Sending OTP via MiM SMS API:", smsData);

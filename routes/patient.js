@@ -27,29 +27,37 @@ router.post("/add", authenticateAPIKey, upload.single('image'), async (req, res)
             name, phoneNumber, email, gender, bloodGroup, dateOfBirth, age, weight
         } = req.body;
 
+        // Validate required fields
+        if (!name || !phoneNumber) {
+            return res.status(400).json({ error: "Name and phone number are required fields" });
+        }
+
         // Handle the image file
-        const image = req.file ? req.file.path : null;  // If file is uploaded, store the file path
+        const image = req.file ? req.file.path : "";  // If file is uploaded, store the file path
+
+        // Create patient data with all required fields with default values
+        const patientData = {
+            name,
+            phoneNumber,
+            email: email || "",
+            gender: gender || "",
+            bloodGroup: bloodGroup || "",
+            dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : new Date(), // Default to current date if not provided
+            age: age || "",
+            weight: weight || "",
+            image: image || ""
+        };
 
         // Create new patient
         const newPatient = await prisma.patient.create({
-            data: {
-                name,
-                phoneNumber,
-                email,
-                gender,
-                bloodGroup,
-                dateOfBirth: new Date(dateOfBirth),
-                age,
-                weight,
-                image // Save the file path in the database
-            }
+            data: patientData
         });
 
         res.status(201).json({ message: "Patient added successfully", patient: newPatient });
 
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: "Internal Server Error" });
+        res.status(500).json({ error: "Internal Server Error", details: error.message });
     }
 });
 
@@ -57,20 +65,7 @@ router.post("/add", authenticateAPIKey, upload.single('image'), async (req, res)
 router.get("/", authenticateAPIKey, async (req, res) => {
     try {
         const patients = await prisma.patient.findMany();
-        const response = patients.map(patient => ({
-            id: patient.id,
-            name: patient.name,
-            phoneNumber: patient.phoneNumber,
-            email: patient.email,
-            gender: patient.gender,
-            bloodGroup: patient.bloodGroup,
-            dateOfBirth: patient.dateOfBirth,
-            age: patient.age,
-            weight: patient.weight,
-            image: patient.image // This will be the image URL or file path
-        }));
-
-        res.status(200).json(response);
+        res.status(200).json(patients);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Internal Server Error" });
@@ -85,21 +80,7 @@ router.get("/:id", authenticateAPIKey, async (req, res) => {
         });
 
         if (!patient) return res.status(404).json({ error: "Patient not found" });
-
-        const response = {
-            id: patient.id,
-            name: patient.name,
-            phoneNumber: patient.phoneNumber,
-            email: patient.email,
-            gender: patient.gender,
-            bloodGroup: patient.bloodGroup,
-            dateOfBirth: patient.dateOfBirth,
-            age: patient.age,
-            weight: patient.weight,
-            image: patient.image
-        };
-
-        res.status(200).json(response);
+        res.status(200).json(patient);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Internal Server Error" });
@@ -117,27 +98,38 @@ router.put("/edit/:id", authenticateAPIKey, upload.single('image'), async (req, 
             return res.status(404).json({ error: "Patient not found" });
         }
 
-        const image = req.file ? req.file.path : existingPatient.image;  // Update image if new one is uploaded
+        // Validate required fields if they are being updated
+        if (name === "" || phoneNumber === "") {
+            return res.status(400).json({ error: "Name and phone number cannot be empty" });
+        }
+
+        // Prepare update data
+        const updateData = {};
+        
+        // Only include fields that are provided in the request
+        if (name !== undefined) updateData.name = name;
+        if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+        if (email !== undefined) updateData.email = email || "";
+        if (gender !== undefined) updateData.gender = gender || "";
+        if (bloodGroup !== undefined) updateData.bloodGroup = bloodGroup || "";
+        if (dateOfBirth) updateData.dateOfBirth = new Date(dateOfBirth);
+        if (age !== undefined) updateData.age = age || "";
+        if (weight !== undefined) updateData.weight = weight || "";
+        
+        // Update image if new one is uploaded
+        if (req.file) {
+            updateData.image = req.file.path;
+        }
 
         const updatedPatient = await prisma.patient.update({
             where: { id: patientId },
-            data: {
-                name: name || existingPatient.name,
-                phoneNumber: phoneNumber || existingPatient.phoneNumber,
-                email: email || existingPatient.email,
-                gender: gender || existingPatient.gender,
-                bloodGroup: bloodGroup || existingPatient.bloodGroup,
-                dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : existingPatient.dateOfBirth,
-                age: age || existingPatient.age,
-                weight: weight || existingPatient.weight,
-                image: image // Save the new image file path if uploaded
-            }
+            data: updateData
         });
 
         res.status(200).json({ message: "Patient updated successfully", patient: updatedPatient });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: "Internal Server Error" });
+        res.status(500).json({ error: "Internal Server Error", details: error.message });
     }
 });
 

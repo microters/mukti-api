@@ -5,158 +5,200 @@ const authenticateAPIKey = require("../../middleware/authMiddleware");
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// 📌 নতুন Patient Appointment তৈরি করা
+// 📌 Create a new Patient Appointment
 router.post("/", authenticateAPIKey, async (req, res) => {
-    const { patientName, phone, departmentId, doctorId, day } = req.body;
+  const { patientName, phone, departmentId, doctorId, day } = req.body;
 
-    if (!patientName || !phone || !departmentId || !doctorId || !day) {
-        return res.status(400).json({ error: "সব ফিল্ড প্রয়োজনীয়!" });
+  // Validate required fields
+  if (!patientName || !phone || !departmentId || !doctorId || !day) {
+    return res.status(400).json({ error: "All fields are required!" });
+  }
+
+  // Log the received IDs for debugging
+  console.log("Received IDs:", { departmentId, doctorId });
+
+  try {
+    // Fetch the department and doctor using the UUID strings directly
+    const department = await prisma.department.findUnique({
+      where: { id: departmentId },
+    });
+    const doctor = await prisma.doctor.findUnique({
+      where: { id: doctorId },
+    });
+
+    console.log("Fetched department:", department);
+    console.log("Fetched doctor:", doctor);
+
+    // Check if both department and doctor exist
+    if (!department || !doctor) {
+      return res.status(404).json({ error: "Department or Doctor not found" });
     }
 
-    try {
-        const newAppointment = await prisma.patientAppointment.create({
-            data: {
-                patientName,
-                phone,
-                departmentId,
-                doctorId,
-                day,
-            },
-        });
+    // Extract the name values from the translations, defaulting to English if available
+    const departmentName =
+      (department.translations &&
+        department.translations.en &&
+        department.translations.en.name) ||
+      "N/A";
+    const doctorName =
+      (doctor.translations &&
+        doctor.translations.en &&
+        doctor.translations.en.name) ||
+      "N/A";
 
-        res.status(201).json({
-            message: "অ্যাপয়েন্টমেন্ট সফলভাবে বুক করা হয়েছে!",
-            appointment: newAppointment
-        });
-    } catch (error) {
-        console.error("❌ নতুন অ্যাপয়েন্টমেন্ট তৈরি করার সময় সমস্যা:", error);
-        res.status(500).json({ error: "সার্ভার ত্রুটি" });
-    }
+    // Create the appointment using the fetched names
+    const newAppointment = await prisma.patientAppointment.create({
+      data: {
+        patientName,
+        phone,
+        day,
+        departmentName, // Use the extracted department name
+        doctorName,     // Use the extracted doctor name
+      },
+    });
+
+    res.status(201).json({
+      message: "Successfully booked appointment!",
+      appointment: newAppointment,
+    });
+  } catch (error) {
+    console.error("❌ Error creating new appointment:", error);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
-// 📌 সব Patient Appointments দেখানো (Doctor & Department নাম সহ)
+// 📌 Fetch all Patient Appointments (including Doctor & Department names)
 router.get("/", authenticateAPIKey, async (req, res) => {
-    try {
-        const appointments = await prisma.patientAppointment.findMany({
-            include: {
-                department: { select: { name: true } }, // ✅ Department Name আনবে
-                doctor: { select: { name: true } }, // ✅ Doctor Name আনবে
-            },
-            orderBy: { createdAt: "desc" }, // ✅ সর্বশেষ অ্যাপয়েন্টমেন্ট আগে দেখাবে
-        });
+  try {
+    const appointments = await prisma.patientAppointment.findMany({
+      include: {
+        department: { select: { name: true } }, // Retrieve Department name
+        doctor: { select: { name: true } }, // Retrieve Doctor name
+      },
+      orderBy: { createdAt: "desc" }, // Show the most recent appointments first
+    });
 
-        // ✅ ডাটাকে প্রসেস করে ID এর পরিবর্তে নাম দেখানো হবে
-        const formattedAppointments = appointments.map(appointment => ({
-            id: appointment.id,
-            patientName: appointment.patientName,
-            phone: appointment.phone,
-            department: appointment.department?.name || "N/A", // ✅ Department Name
-            doctor: appointment.doctor?.name || "N/A", // ✅ Doctor Name
-            day: appointment.day,
-            createdAt: appointment.createdAt,
-        }));
+    // Process the data to display names instead of IDs
+    const formattedAppointments = appointments.map((appointment) => ({
+      id: appointment.id,
+      patientName: appointment.patientName,
+      phone: appointment.phone,
+      department: appointment.department?.name || "N/A", // Department name
+      doctor: appointment.doctor?.name || "N/A", // Doctor name
+      day: appointment.day,
+      createdAt: appointment.createdAt,
+    }));
 
-        res.json({ message: "Appointments fetched successfully!", appointments: formattedAppointments });
-    } catch (error) {
-        console.error("❌ অ্যাপয়েন্টমেন্ট ফেচ করতে সমস্যা:", error.message);
-        res.status(500).json({ error: "সার্ভার ত্রুটি" });
-    }
+    res.json({
+      message: "Appointments fetched successfully!",
+      appointments: formattedAppointments,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching appointments:", error.message);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
-// 📌 নির্দিষ্ট একটি Patient Appointment ফেচ করা
+// 📌 Fetch a specific Patient Appointment
 router.get("/:id", authenticateAPIKey, async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    try {
-        const appointment = await prisma.patientAppointment.findUnique({
-            where: { id },
-            include: {
-                department: { select: { name: true } }, // ✅ Department Name আনবে
-                doctor: { select: { name: true } }, // ✅ Doctor Name আনবে
-            },
-        });
+  try {
+    const appointment = await prisma.patientAppointment.findUnique({
+      where: { id },
+      include: {
+        department: { select: { name: true } }, // Retrieve Department name
+        doctor: { select: { name: true } }, // Retrieve Doctor name
+      },
+    });
 
-        if (!appointment) {
-            return res.status(404).json({ error: "Patient appointment খুঁজে পাওয়া যায়নি" });
-        }
-
-        // ✅ ID এর পরিবর্তে নাম দেখানো হবে
-        const formattedAppointment = {
-            id: appointment.id,
-            patientName: appointment.patientName,
-            phone: appointment.phone,
-            department: appointment.department?.name || "N/A",
-            doctor: appointment.doctor?.name || "N/A",
-            day: appointment.day,
-            createdAt: appointment.createdAt,
-        };
-
-        res.json(formattedAppointment);
-    } catch (error) {
-        console.error("❌ অ্যাপয়েন্টমেন্ট ফেচ করতে সমস্যা:", error.message);
-        res.status(500).json({ error: "সার্ভার ত্রুটি" });
+    if (!appointment) {
+      return res
+        .status(404)
+        .json({ error: "Patient appointment not found" });
     }
+
+    // Display names instead of IDs
+    const formattedAppointment = {
+      id: appointment.id,
+      patientName: appointment.patientName,
+      phone: appointment.phone,
+      department: appointment.department?.name || "N/A",
+      doctor: appointment.doctor?.name || "N/A",
+      day: appointment.day,
+      createdAt: appointment.createdAt,
+    };
+
+    res.json(formattedAppointment);
+  } catch (error) {
+    console.error("❌ Error fetching appointment:", error.message);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
-// 📌 Patient Appointment আপডেট করা
+// 📌 Update a Patient Appointment
 router.put("/:id", authenticateAPIKey, async (req, res) => {
-    const { id } = req.params;
-    const { patientName, phone, departmentId, doctorId, day } = req.body;
+  const { id } = req.params;
+  const { patientName, phone, departmentId, doctorId, day } = req.body;
 
-    try {
-        // ✅ চেক করা হচ্ছে অ্যাপয়েন্টমেন্ট আছে কিনা
-        const existingAppointment = await prisma.patientAppointment.findUnique({
-            where: { id },
-        });
+  try {
+    // Check if the appointment exists
+    const existingAppointment = await prisma.patientAppointment.findUnique({
+      where: { id },
+    });
 
-        if (!existingAppointment) {
-            return res.status(404).json({ error: "Patient appointment খুঁজে পাওয়া যায়নি" });
-        }
-
-        // ✅ অ্যাপয়েন্টমেন্ট আপডেট
-        const updatedAppointment = await prisma.patientAppointment.update({
-            where: { id },
-            data: {
-                patientName,
-                phone,
-                departmentId,
-                doctorId,
-                day,
-                updatedAt: new Date(), // ✅ আপডেট সময় ট্র্যাক করা
-            },
-        });
-
-        res.json({
-            message: "Patient appointment সফলভাবে আপডেট হয়েছে!",
-            appointment: updatedAppointment,
-        });
-    } catch (error) {
-        console.error("❌ অ্যাপয়েন্টমেন্ট আপডেট করতে সমস্যা:", error.message);
-        res.status(500).json({ error: "সার্ভার ত্রুটি" });
+    if (!existingAppointment) {
+      return res
+        .status(404)
+        .json({ error: "Patient appointment not found" });
     }
+
+    // Update the appointment
+    const updatedAppointment = await prisma.patientAppointment.update({
+      where: { id },
+      data: {
+        patientName,
+        phone,
+        departmentId,
+        doctorId,
+        day,
+        updatedAt: new Date(), // Track the update time
+      },
+    });
+
+    res.json({
+      message: "Patient appointment updated successfully!",
+      appointment: updatedAppointment,
+    });
+  } catch (error) {
+    console.error("❌ Error updating appointment:", error.message);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
-// 📌 Patient Appointment ডিলিট করা
+// 📌 Delete a Patient Appointment
 router.delete("/:id", authenticateAPIKey, async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    try {
-        // ✅ চেক করা হচ্ছে অ্যাপয়েন্টমেন্ট আছে কিনা
-        const existingAppointment = await prisma.patientAppointment.findUnique({
-            where: { id },
-        });
+  try {
+    // Check if the appointment exists
+    const existingAppointment = await prisma.patientAppointment.findUnique({
+      where: { id },
+    });
 
-        if (!existingAppointment) {
-            return res.status(404).json({ error: "Patient appointment খুঁজে পাওয়া যায়নি" });
-        }
-
-        await prisma.patientAppointment.delete({ where: { id } });
-
-        res.json({ message: "Patient appointment সফলভাবে ডিলিট হয়েছে!" });
-    } catch (error) {
-        console.error("❌ অ্যাপয়েন্টমেন্ট ডিলিট করতে সমস্যা:", error.message);
-        res.status(500).json({ error: "সার্ভার ত্রুটি" });
+    if (!existingAppointment) {
+      return res
+        .status(404)
+        .json({ error: "Patient appointment not found" });
     }
+
+    await prisma.patientAppointment.delete({ where: { id } });
+
+    res.json({ message: "Patient appointment deleted successfully!" });
+  } catch (error) {
+    console.error("❌ Error deleting appointment:", error.message);
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 module.exports = router;

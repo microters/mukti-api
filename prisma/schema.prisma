@@ -380,11 +380,12 @@ model Page {
 
 
 model PatientAppointment {
-  id          String   @id @default(uuid())
-  patientName String
-  phone       String
-  department  String
-  doctor      String
-  day        String
-  createdAt   DateTime @default(now())
+  id             Int      @id @default(autoincrement())
+  patientName    String
+  phone          String
+  day            String
+  departmentName String   // Storing the department name directly
+  doctorName     String   // Storing the doctor name directly
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

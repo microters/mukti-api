@@ -33,7 +33,7 @@ const corsOptions = {
   origin: ["http://localhost:3000", "http://localhost:3001"],// ✅ Adjust this for production
   methods: "GET,POST,PUT,DELETE",
   credentials: true,
-  allowedHeaders: ["Content-Type", "Authorization"],
+  // allowedHeaders: ["Content-Type", "Authorization"],
 };
 
 app.use(cors(corsOptions));
