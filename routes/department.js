@@ -1,14 +1,24 @@
 const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const authenticateAPIKey = require("../middleware/authMiddleware");
-
-// Multer for file uploads
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 
 const prisma = new PrismaClient();
 const router = express.Router();
+
+// --------------------------------------------------------
+// HELPER FUNCTION: Generate SEO-Friendly Slug from English Title
+// --------------------------------------------------------
+const generateSlug = (text) => {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric characters with hyphens
+    .replace(/^-+|-+$/g, ''); // Remove leading and trailing hyphens
+};
 
 // --------------------------------------------------------
 // MULTER CONFIG
@@ -34,7 +44,7 @@ const upload = multer({ storage });
 router.use("/uploads", express.static("uploads"));
 
 // --------------------------------------------------------
-// 1) CREATE (POST) – with icon
+// 1) CREATE (POST) – with icon and slug generation from English title
 // --------------------------------------------------------
 router.post(
   "/",
@@ -46,7 +56,6 @@ router.post(
       let { translations } = req.body;
 
       if (typeof translations === "string") {
-        // parse string if necessary
         translations = JSON.parse(translations);
       }
 
@@ -54,14 +63,20 @@ router.post(
         return res.status(400).json({ error: "Invalid translations format" });
       }
 
-      // If a file is uploaded, store path
+      // Generate slug from the English title (assuming translations.en.title exists)
+      const englishTitle =
+        translations.en && translations.en.title ? translations.en.title : "";
+      const slug = generateSlug(englishTitle);
+
+      // If a file is uploaded, store its path
       const iconPath = req.file ? `/uploads/${req.file.filename}` : null;
 
-      // Create new department
+      // Create new department including the slug field
       const newDepartment = await prisma.department.create({
         data: {
           translations,
           icon: iconPath,
+          slug, // SEO-friendly slug based on the English title
         },
       });
 
@@ -80,14 +95,13 @@ router.post(
 // --------------------------------------------------------
 router.get("/", authenticateAPIKey, async (req, res) => {
   try {
-    // If you want default language, you can parse it from query
+    // Optionally, you can parse the desired language from query
     const { lang = "en" } = req.query;
 
     const departments = await prisma.department.findMany();
 
-    // Return the entire translations object plus the icon path
+    // Return the entire translations object plus the icon path and slug
     const response = departments.map((dep) => {
-      // parse JSON if stored as string
       let parsed = dep.translations;
       if (typeof parsed === "string") {
         try {
@@ -96,10 +110,10 @@ router.get("/", authenticateAPIKey, async (req, res) => {
           parsed = {};
         }
       }
-
       return {
         id: dep.id,
         translations: parsed,
+        slug: dep.slug,
         icon: dep.icon || null,
         createdAt: dep.createdAt,
         updatedAt: dep.updatedAt,
@@ -141,6 +155,7 @@ router.get("/:id", authenticateAPIKey, async (req, res) => {
     res.json({
       id: department.id,
       translations: translatedData,
+      slug: department.slug,
       icon: department.icon,
       createdAt: department.createdAt,
       updatedAt: department.updatedAt,
@@ -152,18 +167,18 @@ router.get("/:id", authenticateAPIKey, async (req, res) => {
 });
 
 // --------------------------------------------------------
-// 4) UPDATE (PUT) – with optional icon
+// 4) UPDATE (PUT) – with optional icon and slug regeneration
 // --------------------------------------------------------
 router.put(
   "/:id",
   authenticateAPIKey,
-  upload.single("icon"), // If you want to update icon
+  upload.single("icon"), // If you want to update the icon
   async (req, res) => {
     try {
       const { id } = req.params;
       let { translations } = req.body;
 
-      // parse translations if string
+      // Parse translations if they are a string
       if (typeof translations === "string") {
         translations = JSON.parse(translations);
       }
@@ -179,10 +194,17 @@ router.put(
         existingTrans = JSON.parse(existingTrans || "{}");
       }
 
-      // Merge new translations with existing
+      // Merge new translations with existing ones
       const mergedTranslations = { ...existingTrans, ...translations };
 
-      // If a new file is uploaded, store path, else keep existing
+      // Generate new slug from the updated English title
+      const englishTitle =
+        mergedTranslations.en && mergedTranslations.en.title
+          ? mergedTranslations.en.title
+          : "";
+      const slug = generateSlug(englishTitle);
+
+      // If a new file is uploaded, store its path; else keep existing icon path
       const iconPath = req.file
         ? `/uploads/${req.file.filename}`
         : existingDepartment.icon;
@@ -192,6 +214,7 @@ router.put(
         data: {
           translations: mergedTranslations,
           icon: iconPath,
+          slug, // Update the slug based on the new English title
         },
       });
 
@@ -218,8 +241,10 @@ router.delete("/:id", authenticateAPIKey, async (req, res) => {
       return res.status(404).json({ error: "Department not found" });
     }
 
-    // Optionally remove the icon file from disk if you want
-    // fs.unlinkSync(`.${existingDepartment.icon}`)...
+    // Optionally remove the icon file from disk if you want (example commented out):
+    // if (existingDepartment.icon) {
+    //   fs.unlinkSync(path.join(__dirname, "..", existingDepartment.icon));
+    // }
 
     await prisma.department.delete({ where: { id } });
     res.json({ message: "Department deleted successfully" });

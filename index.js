@@ -19,7 +19,6 @@ const homeRoutes=require("./routes/home")
 const blogRoutes=require("./routes/blog")
 const categoryRoutes=require("./routes/categories")
 const pageRoutes=require("./routes/page")
-const voiceRoutes=require("./routes/voiceclone")
 const userRoute=require("./routes/userRoutes")
 
 
@@ -30,7 +29,7 @@ const PORT = process.env.PORT || 5000;
 app.use("/uploads", express.static("uploads"));
 // ✅ Enable CORS for Next.js Frontend
 const corsOptions = {
-  origin: ["http://localhost:3000", "http://localhost:3001"],// ✅ Adjust this for production
+  origin: ["http://localhost:3000", "https://dashboard-muktidigital.netlify.app"],// ✅ Adjust this for production
   methods: "GET,POST,PUT,DELETE",
   credentials: true,
   // allowedHeaders: ["Content-Type", "Authorization"],
@@ -60,7 +59,6 @@ app.use("/api/home", homeRoutes);
 app.use("/api/blogs", blogRoutes);
 app.use("/api/category", categoryRoutes);
 app.use("/api/page", pageRoutes);
-app.use("/api/voice", voiceRoutes);
 app.use("/api/user", userRoute);
 // ✅ Start the Server
 app.listen(PORT, () => {

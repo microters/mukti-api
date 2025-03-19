@@ -16,14 +16,14 @@ datasource db {
 // ==========================
 // User MODEL
 // ==========================
-model User {
-  id            String   @id @default(uuid()) // Unique user ID
-  name          String   // User's Full Name
-  mobile        String   @unique // Mobile number (Used for login)
-  profilePhoto  String?  // Optional Profile Picture
-  username      String?  @unique // Optional Username
-  createdAt     DateTime @default(now())
-}
+// model User {
+//   id            String   @id @default(uuid()) // Unique user ID
+//   name          String   // User's Full Name
+//   mobile        String   @unique // Mobile number (Used for login)
+//   profilePhoto  String?  // Optional Profile Picture
+//   username      String?  @unique // Optional Username
+//   createdAt     DateTime @default(now())
+// }
 
 model OTP {
   id          String   @id @default(uuid())
@@ -74,11 +74,12 @@ model Doctor {
 // ==========================
 
 model Department {
-  id              String   @id @default(uuid()) // Generates UUID automatically
-  translations    Json
-  icon            String?  // Stores the icon file path (nullable)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  translations  Json
+  icon          String?
+  slug          String?  // Add the slug field if it's missing
 }
 
 
@@ -89,26 +90,50 @@ model Department {
 // ==========================
 
 model Appointment {
-  id                String    @id @default(uuid())
+  id                String         @id @default(uuid())
   doctorId          String
+  doctorName        String
   patientId         String
-  scheduleId        String?   // নতুন ফিল্ড, যদি শিডিউল থাকে
+  patientName       String
+  mobileNumber      String
+  scheduleId        String?
   serialNumber      Int?
-  consultationFee   Float
-  vat               Float
-  promoCode         String?
-  consultationType  ConsultationType
-  paymentMethod     PaymentMethod
-  directorReference String?
-  status            String    @default("Pending")
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  weight            Float?
+  age               Int?
+  bloodGroup        BloodGroup?
+  reference         String?
+  consultationFee   Float?
+  paymentMethod     PaymentMethod?
+  reason            String?
+  address           String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
-  doctor   Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  patient  Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  schedule Schedule? @relation(fields: [scheduleId], references: [id])
+  schedule          Schedule?      @relation(fields: [scheduleId], references: [id])
+  doctor            Doctor         @relation(fields: [doctorId], references: [id])
+  patient           Patient        @relation(fields: [patientId], references: [id])
+
+  User User[]
 }
 
+enum BloodGroup {
+  A_POSITIVE
+  A_NEGATIVE
+  B_POSITIVE
+  B_NEGATIVE
+  O_POSITIVE
+  O_NEGATIVE
+  AB_POSITIVE
+  AB_NEGATIVE
+}
+
+enum PaymentMethod {
+  CASH
+  BKASH
+  NAGAD
+  ROCKET
+  BANK
+}
 
 
 
@@ -116,24 +141,61 @@ model Appointment {
 // PATIENT MODEL
 // ==========================
 
-model Patient { 
-  id          String  @id @default(uuid())
-  name        String
-  phoneNumber String
-  email       String  @unique
-  gender      String
-  bloodGroup  String
-  dateOfBirth DateTime
-  age         String
-  weight      String
-  image       String  // URL of the image
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// model Patient { 
+//   id          String  @id @default(uuid())
+//   name        String
+//   phoneNumber String
+//   email       String  @unique
+//   gender      String
+//   bloodGroup  String
+//   dateOfBirth DateTime
+//   age         String
+//   weight      String
+//   image       String  // URL of the image
+//   createdAt   DateTime @default(now())
+//   updatedAt   DateTime @updatedAt
 
-  appointments Appointment[]
+//   appointments Appointment[]
+// }
+
+model User {
+  id            String      @id @default(uuid())
+  name          String
+  mobile        String      @unique
+  email         String?
+  profilePhoto  String?
+  role          String      @default("user")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  // Relations
+  patients      Patient[]
+  appointments  Appointment[]
 }
 
+model Patient { 
+  id            String      @id @default(uuid())
+  name          String
+  phoneNumber   String
+  email         String?     @unique
+  gender        String?
+  bloodGroup    String?
+  dateOfBirth   DateTime?
+  age           String?
+  weight        String?
+  height        String?
+  image         String?     // URL or path of the image
+  medicalHistory String?
+  
+  // Relations
+  userId        String      // User who created/owns this patient
+  user          User        @relation(fields: [userId], references: [id])
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
+  appointments  Appointment[]
+}
 // ==========================
 // MEMBERSHIP MODEL
 // ==========================
@@ -228,12 +290,6 @@ model FAQ {
 enum ConsultationType {
   PHYSICAL
   VIDEO_CALL
-}
-
-enum PaymentMethod {
-  BKASH
-  BANK
-  REFERENCE
 }
 
 // ==========================
