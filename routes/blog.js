@@ -1,4 +1,3 @@
-
 const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const multer = require("multer");
@@ -58,7 +57,7 @@ router.post("/add", authenticateAPIKey, upload.single("image"), async (req, res)
       return res.status(400).json({ error: "Invalid translations format" });
     }
 
-    // ✅ Create a new blog WITHOUT category
+    // Create a new blog WITHOUT category
     const newBlog = await prisma.blog.create({
       data: {
         translations,
@@ -106,6 +105,46 @@ router.get("/:id", authenticateAPIKey, async (req, res) => {
 });
 
 // -------------------
+// GET a single blog by SLUG
+// Example: /api/blogs/slug/my-awesome-post
+// -------------------
+router.get("/slug/:slug", authenticateAPIKey, async (req, res) => {
+  try {
+    const { slug } = req.params;
+    
+    // 1) Get all blogs
+    const allBlogs = await prisma.blog.findMany();
+
+    // 2) Try to find a blog whose translations.en.slug or translations.bn.slug matches
+    const matchingBlog = allBlogs.find((blog) => {
+      try {
+        const parsed = typeof blog.translations === "string"
+          ? JSON.parse(blog.translations)
+          : blog.translations;
+        
+        // Check both English and Bangla slugs if you want
+        const enSlug = parsed?.en?.slug;
+        const bnSlug = parsed?.bn?.slug;
+
+        return enSlug === slug || bnSlug === slug;
+      } catch (err) {
+        // If JSON parse fails or no slug found, skip
+        return false;
+      }
+    });
+
+    if (!matchingBlog) {
+      return res.status(404).json({ error: "Blog not found by slug" });
+    }
+
+    res.status(200).json(matchingBlog);
+  } catch (error) {
+    console.error("Error in GET /api/blogs/slug/:slug:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// -------------------
 // PUT (Update a blog) -> NO CATEGORY
 // -------------------
 router.put("/edit/:id", authenticateAPIKey, upload.single("image"), async (req, res) => {
@@ -113,9 +152,8 @@ router.put("/edit/:id", authenticateAPIKey, upload.single("image"), async (req, 
     const blogId = req.params.id.trim();
     let { translations } = req.body;
 
-    console.log("Received Translations Data:", translations); // 👈 Debugging
+    console.log("Received Translations Data:", translations); // Debugging
 
-    // যদি `translations` JSON না হয়, তাহলে পার্স করুন
     if (typeof translations === "string") {
       translations = JSON.parse(translations);
     }
@@ -129,9 +167,8 @@ router.put("/edit/:id", authenticateAPIKey, upload.single("image"), async (req, 
       },
     });
 
-    console.log("Updated Blog Data:", updatedBlog); // 👈 Debugging
+    console.log("Updated Blog Data:", updatedBlog); // Debugging
     res.status(200).json({ message: "Blog updated successfully", blog: updatedBlog });
-
   } catch (error) {
     console.error("❌ Error updating blog:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
@@ -144,7 +181,6 @@ router.put("/edit/:id", authenticateAPIKey, upload.single("image"), async (req, 
 router.delete("/delete/:id", authenticateAPIKey, async (req, res) => {
   try {
     const { id } = req.params;
-
     const deletedBlog = await prisma.blog.delete({ where: { id } });
     res.status(200).json({ message: "Blog deleted successfully", blog: deletedBlog });
   } catch (error) {

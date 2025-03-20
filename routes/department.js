@@ -1,4 +1,4 @@
-const express = require("express"); 
+const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const authenticateAPIKey = require("../middleware/authMiddleware");
 const multer = require("multer");
@@ -16,8 +16,8 @@ const generateSlug = (text) => {
     .toString()
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, '-') // non-alphanumeric characters => hyphen
-    .replace(/^-+|-+$/g, '');     // remove leading/trailing hyphens
+    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric characters with hyphens
+    .replace(/^-+|-+$/g, '');     // Remove leading and trailing hyphens
 };
 
 // --------------------------------------------------------
@@ -56,16 +56,18 @@ router.post(
         return res.status(400).json({ error: "Invalid translations format" });
       }
 
-      // ফ্রন্টএন্ড থেকে পাঠানো slug (যদি থাকে) নিন, নাহলে ইংরেজি শিরোনাম থেকে generate করুন
+      // Get the provided slug (if any) and the English title from translations
       const providedSlug = req.body.slug;
       const englishTitle =
         translations.en && translations.en.title ? translations.en.title : "";
+
+      // Use the provided slug (after formatting) if available; otherwise, generate from the English title
       const slug =
         providedSlug && providedSlug.trim() !== ""
-          ? providedSlug
+          ? generateSlug(providedSlug)
           : generateSlug(englishTitle);
 
-      // ফাইল আপলোড থাকলে তার পাথ নির্ধারণ
+      // Determine the icon path if a file is uploaded
       const iconPath = req.file ? `/uploads/${req.file.filename}` : null;
 
       const newDepartment = await prisma.department.create({
@@ -76,9 +78,10 @@ router.post(
         },
       });
 
-      return res
-        .status(201)
-        .json({ message: "Department created successfully", department: newDepartment });
+      return res.status(201).json({
+        message: "Department created successfully",
+        department: newDepartment,
+      });
     } catch (error) {
       console.error("❌ Error creating department:", error);
       return res.status(500).json({ error: "Internal Server Error" });
@@ -120,7 +123,7 @@ router.get("/", authenticateAPIKey, async (req, res) => {
 });
 
 // --------------------------------------------------------
-// 3) GET SINGLE DEPARTMENT (GET)
+// 3) GET SINGLE DEPARTMENT (GET) by ID
 // --------------------------------------------------------
 router.get("/:id", authenticateAPIKey, async (req, res) => {
   try {
@@ -155,7 +158,44 @@ router.get("/:id", authenticateAPIKey, async (req, res) => {
 });
 
 // --------------------------------------------------------
-// 4) UPDATE DEPARTMENT (PUT)
+// 4) GET SINGLE DEPARTMENT BY SLUG
+// --------------------------------------------------------
+router.get("/slug/:slug", authenticateAPIKey, async (req, res) => {
+  try {
+    const { slug } = req.params;
+    // Use findFirst to query by slug since the slug field may not be unique in your schema
+    const department = await prisma.department.findFirst({
+      where: { slug },
+    });
+    if (!department) {
+      return res.status(404).json({ error: "Department not found" });
+    }
+
+    let parsed = department.translations;
+    if (typeof parsed === "string") {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch (err) {
+        parsed = {};
+      }
+    }
+
+    res.status(200).json({
+      id: department.id,
+      translations: parsed,
+      slug: department.slug,
+      icon: department.icon,
+      createdAt: department.createdAt,
+      updatedAt: department.updatedAt,
+    });
+  } catch (error) {
+    console.error("Error fetching department by slug:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// --------------------------------------------------------
+// 5) UPDATE DEPARTMENT (PUT)
 // --------------------------------------------------------
 router.put(
   "/:id",
@@ -180,7 +220,7 @@ router.put(
       }
       const mergedTranslations = { ...existingTrans, ...translations };
 
-      // ফ্রন্টএন্ড থেকে পাঠানো slug থাকলে নিন, নাহলে ইংরেজি শিরোনাম থেকে generate করুন
+      // Get provided slug and generate it accordingly
       const providedSlug = req.body.slug;
       const englishTitle =
         mergedTranslations.en && mergedTranslations.en.title
@@ -188,7 +228,7 @@ router.put(
           : "";
       const slug =
         providedSlug && providedSlug.trim() !== ""
-          ? providedSlug
+          ? generateSlug(providedSlug)
           : generateSlug(englishTitle);
 
       const iconPath = req.file
@@ -216,7 +256,7 @@ router.put(
 );
 
 // --------------------------------------------------------
-// 5) DELETE DEPARTMENT (DELETE)
+// 6) DELETE DEPARTMENT (DELETE)
 // --------------------------------------------------------
 router.delete("/:id", authenticateAPIKey, async (req, res) => {
   try {
@@ -225,7 +265,6 @@ router.delete("/:id", authenticateAPIKey, async (req, res) => {
     if (!existingDepartment) {
       return res.status(404).json({ error: "Department not found" });
     }
-
     await prisma.department.delete({ where: { id } });
     res.json({ message: "Department deleted successfully" });
   } catch (error) {
