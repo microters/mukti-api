@@ -1,4 +1,4 @@
-const express = require("express");
+const express = require("express"); 
 const { PrismaClient } = require("@prisma/client");
 const authenticateAPIKey = require("../middleware/authMiddleware");
 const multer = require("multer");
@@ -9,19 +9,19 @@ const prisma = new PrismaClient();
 const router = express.Router();
 
 // --------------------------------------------------------
-// HELPER FUNCTION: Generate SEO-Friendly Slug from English Title
+// HELPER FUNCTION: Generate SEO-Friendly Slug from a Given Text
 // --------------------------------------------------------
 const generateSlug = (text) => {
   return text
     .toString()
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric characters with hyphens
-    .replace(/^-+|-+$/g, ''); // Remove leading and trailing hyphens
+    .replace(/[^a-z0-9]+/g, '-') // non-alphanumeric characters => hyphen
+    .replace(/^-+|-+$/g, '');     // remove leading/trailing hyphens
 };
 
 // --------------------------------------------------------
-// MULTER CONFIG
+// MULTER CONFIGURATION: For handling file uploads
 // --------------------------------------------------------
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -32,51 +32,47 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    // Unique file name
     const uniqueName = Date.now() + "-" + file.originalname;
     cb(null, uniqueName);
   },
 });
-
 const upload = multer({ storage });
-
-// Serve the /uploads directory as static if you want
 router.use("/uploads", express.static("uploads"));
 
 // --------------------------------------------------------
-// 1) CREATE (POST) – with icon and slug generation from English title
+// 1) CREATE DEPARTMENT (POST)
 // --------------------------------------------------------
 router.post(
   "/",
   authenticateAPIKey,
-  upload.single("icon"), // Field name "icon"
+  upload.single("icon"),
   async (req, res) => {
     try {
-      // translations is likely JSON-stringified from the frontend
       let { translations } = req.body;
-
       if (typeof translations === "string") {
         translations = JSON.parse(translations);
       }
-
       if (!translations || typeof translations !== "object") {
         return res.status(400).json({ error: "Invalid translations format" });
       }
 
-      // Generate slug from the English title (assuming translations.en.title exists)
+      // ফ্রন্টএন্ড থেকে পাঠানো slug (যদি থাকে) নিন, নাহলে ইংরেজি শিরোনাম থেকে generate করুন
+      const providedSlug = req.body.slug;
       const englishTitle =
         translations.en && translations.en.title ? translations.en.title : "";
-      const slug = generateSlug(englishTitle);
+      const slug =
+        providedSlug && providedSlug.trim() !== ""
+          ? providedSlug
+          : generateSlug(englishTitle);
 
-      // If a file is uploaded, store its path
+      // ফাইল আপলোড থাকলে তার পাথ নির্ধারণ
       const iconPath = req.file ? `/uploads/${req.file.filename}` : null;
 
-      // Create new department including the slug field
       const newDepartment = await prisma.department.create({
         data: {
           translations,
           icon: iconPath,
-          slug, // SEO-friendly slug based on the English title
+          slug,
         },
       });
 
@@ -91,16 +87,13 @@ router.post(
 );
 
 // --------------------------------------------------------
-// 2) GET ALL (GET) – no file upload needed
+// 2) GET ALL DEPARTMENTS (GET)
 // --------------------------------------------------------
 router.get("/", authenticateAPIKey, async (req, res) => {
   try {
-    // Optionally, you can parse the desired language from query
     const { lang = "en" } = req.query;
-
     const departments = await prisma.department.findMany();
 
-    // Return the entire translations object plus the icon path and slug
     const response = departments.map((dep) => {
       let parsed = dep.translations;
       if (typeof parsed === "string") {
@@ -119,7 +112,6 @@ router.get("/", authenticateAPIKey, async (req, res) => {
         updatedAt: dep.updatedAt,
       };
     });
-
     res.json(response);
   } catch (error) {
     console.error("❌ Error fetching departments:", error);
@@ -128,13 +120,12 @@ router.get("/", authenticateAPIKey, async (req, res) => {
 });
 
 // --------------------------------------------------------
-// 3) GET SINGLE (GET) – no file upload needed
+// 3) GET SINGLE DEPARTMENT (GET)
 // --------------------------------------------------------
 router.get("/:id", authenticateAPIKey, async (req, res) => {
   try {
     const { id } = req.params;
     const { lang = "en" } = req.query;
-
     const department = await prisma.department.findUnique({ where: { id } });
     if (!department) {
       return res.status(404).json({ error: "Department not found" });
@@ -148,10 +139,7 @@ router.get("/:id", authenticateAPIKey, async (req, res) => {
         parsed = {};
       }
     }
-
-    // If you want only the specific language's subfields:
     const translatedData = parsed[lang] || parsed["en"] || {};
-
     res.json({
       id: department.id,
       translations: translatedData,
@@ -167,18 +155,16 @@ router.get("/:id", authenticateAPIKey, async (req, res) => {
 });
 
 // --------------------------------------------------------
-// 4) UPDATE (PUT) – with optional icon and slug regeneration
+// 4) UPDATE DEPARTMENT (PUT)
 // --------------------------------------------------------
 router.put(
   "/:id",
   authenticateAPIKey,
-  upload.single("icon"), // If you want to update the icon
+  upload.single("icon"),
   async (req, res) => {
     try {
       const { id } = req.params;
       let { translations } = req.body;
-
-      // Parse translations if they are a string
       if (typeof translations === "string") {
         translations = JSON.parse(translations);
       }
@@ -188,23 +174,23 @@ router.put(
         return res.status(404).json({ error: "Department not found" });
       }
 
-      // Parse existing translations if needed
       let existingTrans = existingDepartment.translations;
       if (typeof existingTrans === "string") {
         existingTrans = JSON.parse(existingTrans || "{}");
       }
-
-      // Merge new translations with existing ones
       const mergedTranslations = { ...existingTrans, ...translations };
 
-      // Generate new slug from the updated English title
+      // ফ্রন্টএন্ড থেকে পাঠানো slug থাকলে নিন, নাহলে ইংরেজি শিরোনাম থেকে generate করুন
+      const providedSlug = req.body.slug;
       const englishTitle =
         mergedTranslations.en && mergedTranslations.en.title
           ? mergedTranslations.en.title
           : "";
-      const slug = generateSlug(englishTitle);
+      const slug =
+        providedSlug && providedSlug.trim() !== ""
+          ? providedSlug
+          : generateSlug(englishTitle);
 
-      // If a new file is uploaded, store its path; else keep existing icon path
       const iconPath = req.file
         ? `/uploads/${req.file.filename}`
         : existingDepartment.icon;
@@ -214,7 +200,7 @@ router.put(
         data: {
           translations: mergedTranslations,
           icon: iconPath,
-          slug, // Update the slug based on the new English title
+          slug,
         },
       });
 
@@ -230,21 +216,15 @@ router.put(
 );
 
 // --------------------------------------------------------
-// 5) DELETE (DELETE) – no file upload needed
+// 5) DELETE DEPARTMENT (DELETE)
 // --------------------------------------------------------
 router.delete("/:id", authenticateAPIKey, async (req, res) => {
   try {
     const { id } = req.params;
-
     const existingDepartment = await prisma.department.findUnique({ where: { id } });
     if (!existingDepartment) {
       return res.status(404).json({ error: "Department not found" });
     }
-
-    // Optionally remove the icon file from disk if you want (example commented out):
-    // if (existingDepartment.icon) {
-    //   fs.unlinkSync(path.join(__dirname, "..", existingDepartment.icon));
-    // }
 
     await prisma.department.delete({ where: { id } });
     res.json({ message: "Department deleted successfully" });
