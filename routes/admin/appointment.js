@@ -17,7 +17,7 @@ router.post("/add", authenticateAPIKey, async (req, res) => {
       patientId,
       patientName,
       mobileNumber,
-      scheduleId,
+      // scheduleId is no longer used.
       serialNumber,
       weight,
       age,
@@ -27,34 +27,58 @@ router.post("/add", authenticateAPIKey, async (req, res) => {
       reason,
       address,
       isNewPatient, // new patient flag
+      appointmentDate // user-selected appointment date
     } = req.body;
 
     // Required fields check
-    if (!doctorId || !doctorName || !mobileNumber || !patientName) {
-      return res.status(400).json({ error: "Doctor id, doctor name, patient name, and mobile number are required" });
+    if (!doctorId || !doctorName || !mobileNumber || !patientName || !appointmentDate) {
+      return res.status(400).json({ error: "Doctor id, doctor name, patient name, mobile number, and appointment date are required" });
     }
 
     let finalPatientId = patientId;
 
-    // If new patient or no patientId, create a new patient (with user)
+    // If new patient or no patientId, check by mobile number
     if (isNewPatient || !patientId) {
-      const newPatient = await prisma.patient.create({
-        data: {
-          name: patientName,
-          phoneNumber: mobileNumber,
-          user: {
-            create: {
-           
-              name: patientName,       // Setting patient name as user name
-              mobile: mobileNumber,    // Adding mobile as user field
-            },
-          },
-        },
+      // Look for an existing user with the given mobile number
+      const existingUser = await prisma.user.findUnique({
+        where: { mobile: mobileNumber },
+        include: { patients: true }, // সংশোধিত: "patient" এর পরিবর্তে "patients" ব্যবহার করা হয়েছে
       });
 
-      finalPatientId = newPatient.id;  // Assign the newly created patient's id
+      if (existingUser) {
+        // If the user exists and has a linked patient, reuse that patient's id
+        if (existingUser.patients && existingUser.patients.length > 0) {
+          finalPatientId = existingUser.patients[0].id;
+        } else {
+          // Otherwise, create a new patient record linked to the existing user
+          const newPatient = await prisma.patient.create({
+            data: {
+              name: patientName,
+              phoneNumber: mobileNumber,
+              userId: existingUser.id,
+            },
+          });
+          finalPatientId = newPatient.id;
+        }
+      } else {
+        // No user exists with that mobile; create new user and patient
+        const newPatient = await prisma.patient.create({
+          data: {
+            name: patientName,
+            phoneNumber: mobileNumber,
+            user: {
+              create: {
+                name: patientName,
+                mobile: mobileNumber,
+              },
+            },
+          },
+        });
+        finalPatientId = newPatient.id;
+      }
     }
 
+    // Create the appointment using the appointmentDate provided by the user.
     const newAppointment = await prisma.appointment.create({
       data: {
         doctorId,
@@ -62,7 +86,7 @@ router.post("/add", authenticateAPIKey, async (req, res) => {
         patientId: finalPatientId,
         patientName,
         mobileNumber,
-        scheduleId: scheduleId || undefined,
+        appointmentDate, // user-selected appointment date
         serialNumber: serialNumber ? parseInt(serialNumber) : undefined,
         weight: weight ? parseFloat(weight) : undefined,
         age: age ? parseInt(age) : undefined,
@@ -75,7 +99,7 @@ router.post("/add", authenticateAPIKey, async (req, res) => {
       include: {
         doctor: true,
         patient: true,
-        schedule: true,
+        // schedule not used
       },
     });
 
@@ -85,18 +109,18 @@ router.post("/add", authenticateAPIKey, async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 /**
  * @route   GET /api/appointments
  * @desc    Get all appointments
  * @access  Public
  */
-router.get("/",authenticateAPIKey, async (req, res) => {
+router.get("/", authenticateAPIKey, async (req, res) => {
   try {
     const appointments = await prisma.appointment.findMany({
       include: {
         doctor: true,
         patient: true,
-        schedule: true,
       },
     });
     res.status(200).json({ appointments });
@@ -105,6 +129,7 @@ router.get("/",authenticateAPIKey, async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 /**
  * @route   PUT /api/appointments/edit/:id
  * @desc    Edit an existing appointment
@@ -117,7 +142,6 @@ router.put("/edit/:id", authenticateAPIKey, async (req, res) => {
       doctorName,
       patientName,
       mobileNumber,
-      scheduleId,
       serialNumber,
       weight,
       age,
@@ -126,6 +150,7 @@ router.put("/edit/:id", authenticateAPIKey, async (req, res) => {
       paymentMethod,
       reason,
       address,
+      appointmentDate,
     } = req.body;
 
     const updatedAppointment = await prisma.appointment.update({
@@ -134,7 +159,7 @@ router.put("/edit/:id", authenticateAPIKey, async (req, res) => {
         doctorName,
         patientName,
         mobileNumber,
-        scheduleId: scheduleId || undefined,
+        appointmentDate,
         serialNumber: serialNumber ? parseInt(serialNumber) : undefined,
         weight: weight ? parseFloat(weight) : undefined,
         age: age ? parseInt(age) : undefined,
@@ -147,7 +172,6 @@ router.put("/edit/:id", authenticateAPIKey, async (req, res) => {
       include: {
         doctor: true,
         patient: true,
-        schedule: true,
       },
     });
 
@@ -157,6 +181,7 @@ router.put("/edit/:id", authenticateAPIKey, async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 /**
  * @route   DELETE /api/appointments/delete/:id
  * @desc    Delete an existing appointment
@@ -165,18 +190,14 @@ router.put("/edit/:id", authenticateAPIKey, async (req, res) => {
 router.delete("/delete/:id", authenticateAPIKey, async (req, res) => {
   try {
     const appointmentId = req.params.id;
-
-    // Deleting the appointment
     const deletedAppointment = await prisma.appointment.delete({
       where: { id: appointmentId },
     });
-
     res.status(200).json({ message: "Appointment deleted successfully", appointment: deletedAppointment });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
 
 module.exports = router;
