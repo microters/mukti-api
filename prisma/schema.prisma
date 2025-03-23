@@ -446,3 +446,21 @@ model PatientAppointment {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
+// ==========================
+// About Page MODEL
+// ==========================
+model AboutPage {
+  id           Int      @id @default(1)
+  translations Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+// ==========================
+// Footer Page MODEL
+// ==========================
+model Footer {
+  id           Int      @id @default(1)
+  translations Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
