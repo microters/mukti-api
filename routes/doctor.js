@@ -108,15 +108,9 @@ router.post("/add", authenticateAPIKey, upload.single("profilePhoto"), async (re
 });
 
 
-/**
- * @route   GET /api/doctor
- * @desc    Get all doctors with filters, pagination & language support
- * @query   ?lang=en | ?page=1&limit=10 | ?search=John | ?department=Cardiology
- */
 router.get("/", authenticateAPIKey, async (req, res) => {
   try {
-    const { lang = "en", page = 1, limit = 10, search = "", department = "", sort = "" } = req.query;
-    const skip = (page - 1) * limit;
+    const { lang = "en", search = "", department = "", sort = "" } = req.query;
 
     const filters = {};
     if (search) {
@@ -131,8 +125,6 @@ router.get("/", authenticateAPIKey, async (req, res) => {
 
     const doctors = await prisma.doctor.findMany({
       where: filters,
-      skip: parseInt(skip),
-      take: parseInt(limit),
       include: {
         memberships: true,
         awards: true,
@@ -141,7 +133,9 @@ router.get("/", authenticateAPIKey, async (req, res) => {
         schedule: true,
         faqs: true
       },
-      orderBy: sort === "experience" ? { translations: { path: [lang, "yearsOfExperience"], order: "desc" } } : undefined
+      orderBy: sort === "experience"
+        ? { translations: { path: [lang, "yearsOfExperience"], order: "desc" } }
+        : undefined
     });
 
     res.status(200).json(doctors);
@@ -150,6 +144,8 @@ router.get("/", authenticateAPIKey, async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+
 
 /**
  * @route   GET /api/doctor/slug/:slug

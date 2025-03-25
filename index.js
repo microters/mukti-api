@@ -22,6 +22,7 @@ const pageRoutes=require("./routes/page")
 const userRoute=require("./routes/userRoutes")
 const aboutRoute=require("./routes/about")
 const footerRoute=require("./routes/footer")
+const headerRoute=require("./routes/header")
 
 
 dotenv.config();
@@ -64,6 +65,7 @@ app.use("/api/page", pageRoutes);
 app.use("/api/user", userRoute);
 app.use("/api/about", aboutRoute);
 app.use("/api/footer", footerRoute);
+app.use("/api/header", headerRoute);
 // ✅ Start the Server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
